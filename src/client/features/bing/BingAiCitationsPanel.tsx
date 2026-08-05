@@ -206,8 +206,9 @@ export function BingAiSnapshotPicker({
       >
         {snapshots.map((snapshot, index) => (
           <option key={snapshot.id} value={snapshot.id}>
+            {index === 0 ? "Latest — " : ""}
             {snapshot.periodStart} to {snapshot.periodEnd} ({snapshot.rowCount}{" "}
-            rows){index === 0 ? " — latest" : ""}
+            rows)
           </option>
         ))}
       </select>
