@@ -4,6 +4,7 @@ import type {
   RestoreProjectInput,
   SetProjectDomainInput,
   SetProjectMarketInput,
+  SetRapidapiEnabledInput,
   UpdateProjectInput,
 } from "@/types/schemas/projects";
 import { ProjectRepository } from "@/server/features/projects/repositories/ProjectRepository";
@@ -18,6 +19,7 @@ function mapProject(project: {
   domain: string | null;
   locationCode: number;
   languageCode: string;
+  rapidapiEnabled: boolean;
   createdAt: string;
 }) {
   return {
@@ -28,6 +30,8 @@ function mapProject(project: {
     // fall back to these when a call omits locationCode/languageCode).
     locationCode: project.locationCode,
     languageCode: project.languageCode,
+    // Whether the Revenue page shows the RapidAPI panel. See specs/0014.
+    rapidapiEnabled: project.rapidapiEnabled,
     createdAt: project.createdAt,
   };
 }
@@ -181,6 +185,22 @@ export async function setProjectMarket(
     input.projectId,
     organizationId,
     { locationCode: input.locationCode, languageCode: input.languageCode },
+  );
+  return mapProject(row);
+}
+
+/**
+ * Toggles whether the Revenue page shows the RapidAPI panel, for projects
+ * with no RapidAPI marketplace listing to track.
+ */
+export async function setRapidapiEnabled(
+  organizationId: string,
+  input: SetRapidapiEnabledInput,
+) {
+  const row = await ProjectRepository.updateRapidapiEnabled(
+    input.projectId,
+    organizationId,
+    input.enabled,
   );
   return mapProject(row);
 }

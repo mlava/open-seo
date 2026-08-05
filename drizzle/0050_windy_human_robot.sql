@@ -1,0 +1,1 @@
+ALTER TABLE `projects` ADD `rapidapi_enabled` integer DEFAULT true NOT NULL;

@@ -10,6 +10,7 @@ import {
   restoreProjectSchema,
   setProjectDomainSchema,
   setProjectMarketSchema,
+  setRapidapiEnabledSchema,
   updateProjectSchema,
 } from "@/types/schemas/projects";
 import { z } from "zod";
@@ -48,6 +49,13 @@ export const setProjectMarket = createServerFn({ method: "POST" })
   .validator(setProjectMarketSchema)
   .handler(async ({ data, context }) =>
     ProjectService.setProjectMarket(context.organizationId, data),
+  );
+
+export const setRapidapiEnabled = createServerFn({ method: "POST" })
+  .middleware(requireProjectContext)
+  .validator(setRapidapiEnabledSchema)
+  .handler(async ({ data, context }) =>
+    ProjectService.setRapidapiEnabled(context.organizationId, data),
   );
 
 export const archiveProject = createServerFn({ method: "POST" })

@@ -54,6 +54,12 @@ export const projects = sqliteTable(
     // onboarding and reused by every project-scoped data call.
     locationCode: integer("location_code").notNull().default(2840),
     languageCode: text("language_code").notNull().default("en"),
+    // Whether the Revenue page shows the RapidAPI panel — off for projects
+    // with no RapidAPI marketplace listing to track. Defaults on so existing
+    // projects keep their current behavior.
+    rapidapiEnabled: integer("rapidapi_enabled", { mode: "boolean" })
+      .notNull()
+      .default(true),
     createdAt: text("created_at")
       .notNull()
       .default(sql`(current_timestamp)`),

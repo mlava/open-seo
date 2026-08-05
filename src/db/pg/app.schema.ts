@@ -67,6 +67,10 @@ export const projects = pgTable(
     // onboarding and reused by every project-scoped data call.
     locationCode: integer("location_code").notNull().default(2840),
     languageCode: text("language_code").notNull().default("en"),
+    // Whether the Revenue page shows the RapidAPI panel — off for projects
+    // with no RapidAPI marketplace listing to track. Defaults on so existing
+    // projects keep their current behavior.
+    rapidapiEnabled: boolean("rapidapi_enabled").notNull().default(true),
     createdAt: timestampColumn("created_at").notNull().default(isoNow),
     // Soft delete: archived projects are hidden everywhere but their data
     // (keywords, rank tracking, audits) is preserved.
