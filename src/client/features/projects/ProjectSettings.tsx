@@ -17,6 +17,7 @@ import {
 import {
   archiveProject,
   getProjects,
+  setRapidapiEnabled,
   updateProject,
 } from "@/serverFunctions/projects";
 import type { ProjectSummary } from "./types";
@@ -83,6 +84,11 @@ export function ProjectSettings({ projectId }: { projectId: string }) {
       <section id="stripe" className="space-y-3 scroll-mt-6">
         <h2 className="text-sm font-medium text-base-content/50">Stripe</h2>
         <StripeConnectionCard projectId={projectId} />
+      </section>
+
+      <section id="rapidapi" className="space-y-3 scroll-mt-6">
+        <h2 className="text-sm font-medium text-base-content/50">RapidAPI</h2>
+        <RapidapiToggleCard key={project.id} project={project} />
       </section>
 
       <DangerSection project={project} canArchive={projects.length > 1} />
@@ -181,6 +187,42 @@ function GeneralSection({ project }: { project: ProjectSummary }) {
         </div>
       </form>
     </section>
+  );
+}
+
+function RapidapiToggleCard({ project }: { project: ProjectSummary }) {
+  const queryClient = useQueryClient();
+  const toggleMutation = useMutation({
+    mutationFn: (enabled: boolean) =>
+      setRapidapiEnabled({ data: { projectId: project.id, enabled } }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["projects"] });
+    },
+    onError: (error) =>
+      toast.error(
+        getStandardErrorMessage(error, "Failed to update RapidAPI setting"),
+      ),
+  });
+
+  return (
+    <div className="flex items-center justify-between gap-4 rounded-xl border border-base-300 bg-base-100 p-4 shadow-sm">
+      <div>
+        <p className="text-sm font-medium">Show on the Revenue page</p>
+        <p className="text-sm text-base-content/60">
+          Turn off if this project has no RapidAPI marketplace listing to
+          track — the manually-logged snapshot panel is hidden, and any
+          logged history is kept.
+        </p>
+      </div>
+      <input
+        type="checkbox"
+        className="toggle toggle-sm toggle-primary shrink-0"
+        checked={project.rapidapiEnabled}
+        aria-label="Show RapidAPI on the Revenue page"
+        disabled={toggleMutation.isPending}
+        onChange={(event) => toggleMutation.mutate(event.target.checked)}
+      />
+    </div>
   );
 }
 

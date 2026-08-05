@@ -83,6 +83,11 @@ export const setProjectMarketSchema = z.object({
     .refine(isSupportedLanguageCode, "Unsupported language code"),
 });
 
+export const setRapidapiEnabledSchema = z.object({
+  projectId: z.string().min(1),
+  enabled: z.boolean(),
+});
+
 export const archiveProjectSchema = z.object({
   projectId: z.string().min(1),
 });
@@ -98,5 +103,6 @@ export type CreateProjectInput = z.infer<typeof createProjectSchema>;
 export type UpdateProjectInput = z.infer<typeof updateProjectSchema>;
 export type SetProjectDomainInput = z.infer<typeof setProjectDomainSchema>;
 export type SetProjectMarketInput = z.infer<typeof setProjectMarketSchema>;
+export type SetRapidapiEnabledInput = z.infer<typeof setRapidapiEnabledSchema>;
 export type ArchiveProjectInput = z.infer<typeof archiveProjectSchema>;
 export type RestoreProjectInput = z.infer<typeof restoreProjectSchema>;

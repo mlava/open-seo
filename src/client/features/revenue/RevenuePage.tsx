@@ -8,6 +8,7 @@ import {
   PanelLoading,
   StatTile,
 } from "@/client/features/revenue/revenueParts";
+import { getProjects } from "@/serverFunctions/projects";
 import { getStripeRevenue } from "@/serverFunctions/stripe";
 
 /**
@@ -15,19 +16,34 @@ import { getStripeRevenue } from "@/serverFunctions/stripe";
  * product and/or a one-off purchase product, last 30 days vs prior 30) and
  * RapidAPI (manually-logged subscriber snapshots — RapidAPI has no platform
  * API for public-marketplace subscriber data, per support 2026-08-04).
- * Deliberately PII-free — counts and amounts only. See specs/0014.
+ * Deliberately PII-free — counts and amounts only. RapidAPI is optional per
+ * project (projects.rapidapiEnabled, toggled in project settings) for
+ * projects with no RapidAPI marketplace listing. See specs/0014.
  */
 export function RevenuePage({ projectId }: { projectId: string }) {
+  const projectsQuery = useQuery({
+    queryKey: ["projects"],
+    queryFn: () => getProjects(),
+  });
+  // Undetermined while loading defaults to shown — only an explicit `false`
+  // (loaded and off) hides the panel, so it never flashes and disappears.
+  const rapidapiEnabled =
+    projectsQuery.data?.find((project) => project.id === projectId)
+      ?.rapidapiEnabled !== false;
+
   return (
     <div className="space-y-6 p-4 sm:p-6">
       <div>
         <h1 className="text-2xl font-semibold">Revenue</h1>
         <p className="text-sm text-base-content/70">
-          Subscribers, churn, and purchases from Stripe and RapidAPI.
+          Subscribers, churn, and purchases from Stripe
+          {rapidapiEnabled ? " and RapidAPI" : ""}.
         </p>
       </div>
       <StripePanel projectId={projectId} />
-      <RapidapiSnapshotsPanel projectId={projectId} />
+      {rapidapiEnabled ? (
+        <RapidapiSnapshotsPanel projectId={projectId} />
+      ) : null}
     </div>
   );
 }

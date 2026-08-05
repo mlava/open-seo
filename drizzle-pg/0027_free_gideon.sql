@@ -1,0 +1,1 @@
+ALTER TABLE "projects" ADD COLUMN "rapidapi_enabled" boolean DEFAULT true NOT NULL;

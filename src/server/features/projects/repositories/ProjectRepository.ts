@@ -153,6 +153,32 @@ async function updateProjectMarket(
   return row;
 }
 
+// Writes only the rapidapiEnabled column, for the Revenue-page toggle in
+// project settings.
+async function updateRapidapiEnabled(
+  projectId: string,
+  organizationId: string,
+  enabled: boolean,
+) {
+  const [row] = await db
+    .update(projects)
+    .set({ rapidapiEnabled: enabled })
+    .where(
+      and(
+        eq(projects.id, projectId),
+        eq(projects.organizationId, organizationId),
+        isNull(projects.archivedAt),
+      ),
+    )
+    .returning();
+
+  if (!row) {
+    throw new AppError("NOT_FOUND");
+  }
+
+  return row;
+}
+
 async function tryCreateDefaultProject(organizationId: string) {
   const id = crypto.randomUUID();
   const inserted = await db
@@ -224,6 +250,7 @@ export const ProjectRepository = {
   updateProject,
   updateProjectDomain,
   updateProjectMarket,
+  updateRapidapiEnabled,
   tryCreateDefaultProject,
   archiveProject,
   restoreProject,

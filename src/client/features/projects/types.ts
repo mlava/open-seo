@@ -10,5 +10,7 @@ export type ProjectSummary = {
   // Default market for the project's data calls.
   locationCode: number;
   languageCode: string;
+  // Whether the Revenue page shows the RapidAPI panel.
+  rapidapiEnabled: boolean;
   createdAt: string;
 };

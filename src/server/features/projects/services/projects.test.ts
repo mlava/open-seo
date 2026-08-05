@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   restoreProject: vi.fn(),
   countProjects: vi.fn(),
   updateProjectMarket: vi.fn(),
+  updateRapidapiEnabled: vi.fn(),
   getProjectForOrganization: vi.fn(),
   listProjects: vi.fn(),
   listArchivedProjects: vi.fn(),
@@ -236,6 +237,28 @@ describe("project service", () => {
         }),
       ).rejects.toThrow("Enter a valid domain");
       expect(mocks.updateProjectDomain).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("setRapidapiEnabled", () => {
+    it("writes just the rapidapiEnabled column", async () => {
+      mocks.updateRapidapiEnabled.mockResolvedValue({
+        ...namedProject,
+        rapidapiEnabled: false,
+      });
+      const { setRapidapiEnabled } = await import("./projects");
+
+      const result = await setRapidapiEnabled("org_1", {
+        projectId: "project_acme",
+        enabled: false,
+      });
+
+      expect(mocks.updateRapidapiEnabled).toHaveBeenCalledWith(
+        "project_acme",
+        "org_1",
+        false,
+      );
+      expect(result.rapidapiEnabled).toBe(false);
     });
   });
 
