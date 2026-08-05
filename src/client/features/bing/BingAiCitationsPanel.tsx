@@ -197,7 +197,7 @@ export function BingAiSnapshotPicker({
     <label className="flex flex-col gap-1.5 text-sm">
       <span className="font-medium">Snapshot</span>
       <select
-        className="select select-bordered select-sm"
+        className="select select-bordered select-sm w-full max-w-xl"
         value={selectedId ?? snapshots[0]?.id}
         onChange={(event) => {
           const value = event.target.value;
