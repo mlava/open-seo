@@ -13,3 +13,4 @@ export * from "../gsc.schema";
 export * from "../reddit-attribution.schema";
 export * from "../revenue.schema";
 export * from "../telemetry.schema";
+export * from "../ai-citation-tracking.schema";

@@ -8,6 +8,7 @@ import { ProjectRepository } from "@/server/features/projects/repositories/Proje
 import { SamSessionRepository } from "@/server/features/sam/SamSessionRepository";
 import { runScheduledRankChecks } from "@/server/features/rank-tracking/services/scheduledRankChecks";
 import { runScheduledPagespeedRuns } from "@/server/features/pagespeed/services/scheduledPagespeedRuns";
+import { runScheduledCitationTracking } from "@/server/features/ai-citation-tracking/scheduledCitationTracking";
 import { getOrCreateOrganizationCustomer } from "@/server/billing/subscription";
 import { isHostedServerAuthMode } from "@/server/lib/runtime-env";
 import { getAuthMode, isHostedAuthMode } from "@/lib/auth-mode";
@@ -175,6 +176,7 @@ function handleFetch(
 export { SiteAuditWorkflow } from "./server/workflows/SiteAuditWorkflow";
 export { RankCheckWorkflow } from "./server/workflows/RankCheckWorkflow";
 export { PagespeedSweepWorkflow } from "./server/workflows/PagespeedSweepWorkflow";
+export { AiCitationTrackingWorkflow } from "./server/workflows/AiCitationTrackingWorkflow";
 // Durable Object class for the onboarding strategy chat (Agents SDK).
 export { OnboardingChatAgent } from "./server/features/onboarding/OnboardingChatAgent";
 // Durable Object class for the SAM in-app agent (Agents SDK).
@@ -194,6 +196,7 @@ export default {
       const results = await Promise.allSettled([
         runScheduledRankChecks(env),
         runScheduledPagespeedRuns(env.PAGESPEED_SWEEP_WORKFLOW),
+        runScheduledCitationTracking(env.AI_CITATION_TRACKING_WORKFLOW),
       ]);
       for (const result of results) {
         if (result.status === "rejected") {

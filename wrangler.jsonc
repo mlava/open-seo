@@ -35,6 +35,11 @@
       "binding": "PAGESPEED_SWEEP_WORKFLOW",
       "class_name": "PagespeedSweepWorkflow",
     },
+    {
+      "name": "ai-citation-tracking-workflow",
+      "binding": "AI_CITATION_TRACKING_WORKFLOW",
+      "class_name": "AiCitationTrackingWorkflow",
+    },
   ],
   // Durable Object backing the onboarding strategy chat (Agents SDK
   // AIChatAgent). One instance per project; messages persist in the DO's

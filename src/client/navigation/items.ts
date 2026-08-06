@@ -97,6 +97,11 @@ const projectNavItems = [
     label: "Prompt Explorer",
     icon: MessageSquare,
   },
+  {
+    to: "/p/$projectId/ai-citation-tracking" as const,
+    label: "AI Citation Tracking",
+    icon: MessageSquare,
+  },
 ] as const;
 
 const aiNavItem = linkOptions({
@@ -141,6 +146,7 @@ export function getProjectNavGroups(projectId: string) {
         byPath("/p/$projectId/backlinks"),
         byPath("/p/$projectId/brand-lookup"),
         byPath("/p/$projectId/prompt-explorer"),
+        byPath("/p/$projectId/ai-citation-tracking"),
       ],
     },
     {

@@ -28,6 +28,9 @@ declare namespace Cloudflare {
       urlIds: string[];
     }>;
 
+    // Weekly, project-scoped OpenAI web-search evidence collection.
+    AI_CITATION_TRACKING_WORKFLOW: Workflow<{ runId: string }>;
+
     AUTH_MODE?: "cloudflare_access" | "local_noauth" | "hosted";
     BYPASS_EMAIL_VERIFICATION?: string;
     TEAM_DOMAIN?: string;
@@ -59,6 +62,11 @@ declare namespace Cloudflare {
     // Google API key with the PageSpeed Insights API enabled. Optional: a
     // missing key renders the setup card instead of erroring.
     PAGESPEED_API_KEY?: string;
+
+    // Instance-level OpenAI API credential for AI Citation Tracking. Never
+    // expose this to the client or persist it in a project configuration.
+    OPENAI_API_KEY?: string;
+    OPENAI_CITATION_TRACKING_MODEL?: string;
 
     // Stripe secret (or restricted read) API key for the Revenue page and the
     // get_stripe_revenue MCP tool. May be organization-level — the target
