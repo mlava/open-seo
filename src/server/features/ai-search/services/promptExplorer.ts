@@ -5,6 +5,7 @@ import type { LlmResponseResult } from "@/server/lib/dataforseoLlmSchemas";
 import { AppError } from "@/server/lib/errors";
 import { buildCacheKey, getCached, setCached } from "@/server/lib/r2-cache";
 import { safeHostname, safeHttpUrl } from "@/server/features/ai-search/safeUrl";
+import { mentionRegex } from "@/shared/brand-mentions";
 import {
   promptExplorerModelResultSchema,
   type PromptExplorerCitation,
@@ -256,23 +257,6 @@ function matchesBrand(
   const needle = highlightBrand.toLowerCase();
   const haystack = `${url} ${title ?? ""}`.toLowerCase();
   return haystack.includes(needle);
-}
-
-function mentionRegex(brand: string): RegExp {
-  // Case-insensitive match on the brand string with word-boundary guards only
-  // on sides that end in a word char — otherwise \b fails for brands like
-  // "C++" or "AT&T" where the terminal char is non-word. When a boundary char
-  // is non-word we guard with a negative lookaround against that same char so
-  // "C++" doesn't match "C+++".
-  const escaped = brand.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const firstEscaped = brand[0].replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const lastEscaped = brand[brand.length - 1].replace(
-    /[.*+?^${}()|[\]\\]/g,
-    "\\$&",
-  );
-  const leading = /^\w/.test(brand) ? "\\b" : `(?<!${firstEscaped})`;
-  const trailing = /\w$/.test(brand) ? "\\b" : `(?!${lastEscaped})`;
-  return new RegExp(`${leading}${escaped}${trailing}`, "i");
 }
 
 function normalizePromptForCache(prompt: string): string {

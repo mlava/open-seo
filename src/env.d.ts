@@ -63,10 +63,22 @@ declare namespace Cloudflare {
     // missing key renders the setup card instead of erroring.
     PAGESPEED_API_KEY?: string;
 
-    // Instance-level OpenAI API credential for AI Citation Tracking. Never
-    // expose this to the client or persist it in a project configuration.
+    // Instance-level AI provider credentials for AI Citation Tracking. Each is
+    // called directly, with that provider's own web search, so the evidence
+    // reflects the assistant rather than an aggregator. Never expose these to
+    // the client or persist them in a project configuration. Every provider is
+    // optional — the tab enables whichever keys are present.
     OPENAI_API_KEY?: string;
-    OPENAI_CITATION_TRACKING_MODEL?: string;
+    ANTHROPIC_API_KEY?: string;
+    GOOGLE_GENERATIVE_AI_API_KEY?: string;
+    PERPLEXITY_API_KEY?: string;
+    XAI_API_KEY?: string;
+    // Optional per-provider model overrides (defaults in citationClient.ts).
+    AI_CITATION_MODEL_OPENAI?: string;
+    AI_CITATION_MODEL_ANTHROPIC?: string;
+    AI_CITATION_MODEL_GOOGLE?: string;
+    AI_CITATION_MODEL_PERPLEXITY?: string;
+    AI_CITATION_MODEL_XAI?: string;
 
     // Stripe secret (or restricted read) API key for the Revenue page and the
     // get_stripe_revenue MCP tool. May be organization-level — the target

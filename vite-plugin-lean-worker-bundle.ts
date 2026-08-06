@@ -33,10 +33,13 @@ const EAGER_DENYLIST: Array<{ pattern: RegExp; expected: string }> = [
   },
   {
     pattern:
-      /node_modules\/(workers-ai-provider|@ai-sdk\/(openai|anthropic))\//,
+      /node_modules\/(workers-ai-provider|@ai-sdk\/(openai|anthropic|google|perplexity|xai))\//,
     expected:
       "aliased to workers-ai-provider-stub.ts (@cloudflare/think's default " +
-      "provider path is dead code — our agents construct OpenRouter models)",
+      "provider path is dead code — our agents construct OpenRouter models). " +
+      "AI Citation Tracking uses these SDKs directly but imports each one " +
+      "dynamically in src/server/features/ai-citation-tracking/" +
+      "citationClient.ts, so only the provider being called is ever loaded",
   },
   {
     pattern: /node_modules\/just-bash\//,

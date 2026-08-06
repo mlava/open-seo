@@ -269,10 +269,18 @@ const dataEnv = {
   GOOGLE_CLIENT_SECRET: optionalSecret("GOOGLE_CLIENT_SECRET"),
   OPENROUTER_API_KEY: optionalSecret("OPENROUTER_API_KEY"),
   OPENROUTER_MODEL: optionalVar("OPENROUTER_MODEL"),
-  // AI Citation Tracking uses OpenAI's Responses API with web search. This is
-  // distinct from the OpenRouter key used by the in-app chat agents.
+  // AI Citation Tracking calls each assistant's own API with native web
+  // search. Distinct from the OpenRouter key used by the in-app chat agents.
   OPENAI_API_KEY: optionalSecret("OPENAI_API_KEY"),
-  OPENAI_CITATION_TRACKING_MODEL: optionalVar("OPENAI_CITATION_TRACKING_MODEL"),
+  ANTHROPIC_API_KEY: optionalSecret("ANTHROPIC_API_KEY"),
+  GOOGLE_GENERATIVE_AI_API_KEY: optionalSecret("GOOGLE_GENERATIVE_AI_API_KEY"),
+  PERPLEXITY_API_KEY: optionalSecret("PERPLEXITY_API_KEY"),
+  XAI_API_KEY: optionalSecret("XAI_API_KEY"),
+  AI_CITATION_MODEL_OPENAI: optionalVar("AI_CITATION_MODEL_OPENAI"),
+  AI_CITATION_MODEL_ANTHROPIC: optionalVar("AI_CITATION_MODEL_ANTHROPIC"),
+  AI_CITATION_MODEL_GOOGLE: optionalVar("AI_CITATION_MODEL_GOOGLE"),
+  AI_CITATION_MODEL_PERPLEXITY: optionalVar("AI_CITATION_MODEL_PERPLEXITY"),
+  AI_CITATION_MODEL_XAI: optionalVar("AI_CITATION_MODEL_XAI"),
   AUTUMN_SECRET_KEY: optionalSecret("AUTUMN_SECRET_KEY"),
   AUTUMN_WEBHOOK_SECRET: optionalSecret("AUTUMN_WEBHOOK_SECRET"),
   LOOPS_API_KEY: optionalSecret("LOOPS_API_KEY"),

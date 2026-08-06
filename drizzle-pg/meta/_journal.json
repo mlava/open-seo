@@ -204,6 +204,20 @@
       "when": 1786002971212,
       "tag": "0028_tired_paladin",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1786055825797,
+      "tag": "0029_fresh_quentin_quire",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1786055858807,
+      "tag": "0030_opposite_valeria_richards",
+      "breakpoints": true
     }
   ]
 }

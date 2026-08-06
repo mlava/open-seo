@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull, lte, or } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, lte, or } from "drizzle-orm";
 import { db } from "@/db";
 import {
   aiCitationTrackingCitations,
@@ -6,45 +6,47 @@ import {
   aiCitationTrackingPrompts,
   aiCitationTrackingResponses,
   aiCitationTrackingRuns,
+  aiCitationTrackingTags,
 } from "@/db/schema";
 import { AppError } from "@/server/lib/errors";
 import {
-  callOpenAiForCitationTracking,
-  hasOpenAiCitationTrackingKey,
-  type OpenAiCitationResult,
-} from "./openaiCitationClient";
+  CITATION_PROVIDERS,
+  parseCitationProviders,
+  serializeCitationProviders,
+  type CitationProvider,
+} from "@/shared/ai-citation-providers";
+import { getConfiguredCitationProviders } from "./citationClient";
+import { listPromptTags, setPromptTags } from "./citationTags";
+import {
+  normalizeAliases,
+  nextWeeklyRun,
+  parseAliases,
+} from "./citationHelpers";
+import { finalizeRun, planRun, runPromptTask } from "./citationRunner";
 
 const MAX_PROMPTS_PER_PROJECT = 50;
-const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
-function parseAliases(value: string): string[] {
-  try {
-    const parsed: unknown = JSON.parse(value);
-    return Array.isArray(parsed)
-      ? parsed.filter((item): item is string => typeof item === "string")
-      : [];
-  } catch {
-    return [];
-  }
+async function requireConfig(projectId: string) {
+  const config = (
+    await db
+      .select()
+      .from(aiCitationTrackingConfigs)
+      .where(eq(aiCitationTrackingConfigs.projectId, projectId))
+      .limit(1)
+  )[0];
+  if (!config)
+    throw new AppError(
+      "VALIDATION_ERROR",
+      "Save your tracker settings before adding prompts",
+    );
+  return config;
 }
 
-function normalizeAliases(aliases: string[]): string[] {
-  return [...new Set(aliases.map((alias) => alias.trim()).filter(Boolean))];
-}
-
-function nextWeeklyRun(now = new Date()): string {
-  return new Date(now.getTime() + WEEK_MS).toISOString();
-}
-
-function safeDomain(value: string): string | null {
-  try {
-    return new URL(value).hostname.toLowerCase().replace(/^www\./, "");
-  } catch {
-    return null;
-  }
-}
-
-async function getOverview(projectId: string) {
+/**
+ * Page payload. Deliberately excludes answer text — one run holds up to 250
+ * answers, so the drill-in fetches a single response on demand instead.
+ */
+async function getOverview(projectId: string, runId?: string) {
   const config =
     (
       await db
@@ -53,42 +55,148 @@ async function getOverview(projectId: string) {
         .where(eq(aiCitationTrackingConfigs.projectId, projectId))
         .limit(1)
     )[0] ?? null;
-  const prompts = await db
-    .select()
-    .from(aiCitationTrackingPrompts)
-    .where(eq(aiCitationTrackingPrompts.projectId, projectId))
-    .orderBy(desc(aiCitationTrackingPrompts.createdAt));
-  const runs = await db
-    .select()
-    .from(aiCitationTrackingRuns)
-    .where(eq(aiCitationTrackingRuns.projectId, projectId))
-    .orderBy(desc(aiCitationTrackingRuns.createdAt))
-    .limit(20);
-  const recentResponseRows = await db
-    .select()
-    .from(aiCitationTrackingResponses)
-    .where(eq(aiCitationTrackingResponses.projectId, projectId))
-    .orderBy(desc(aiCitationTrackingResponses.createdAt))
-    .limit(50);
-  const responseIds = recentResponseRows.map((row) => row.id);
-  const citations =
-    responseIds.length === 0
-      ? []
-      : await db
-          .select()
-          .from(aiCitationTrackingCitations)
-          .where(eq(aiCitationTrackingCitations.projectId, projectId))
-          .limit(200);
+
+  const [configuredProviders, promptRows, tags, runs] = await Promise.all([
+    getConfiguredCitationProviders(),
+    db
+      .select()
+      .from(aiCitationTrackingPrompts)
+      .where(eq(aiCitationTrackingPrompts.projectId, projectId))
+      .orderBy(desc(aiCitationTrackingPrompts.createdAt)),
+    db
+      .select()
+      .from(aiCitationTrackingTags)
+      .where(eq(aiCitationTrackingTags.projectId, projectId))
+      .orderBy(aiCitationTrackingTags.name),
+    db
+      .select()
+      .from(aiCitationTrackingRuns)
+      .where(eq(aiCitationTrackingRuns.projectId, projectId))
+      .orderBy(desc(aiCitationTrackingRuns.createdAt))
+      .limit(20),
+  ]);
+
+  const tagsByPrompt = await listPromptTags(projectId);
+  const prompts = promptRows.map((prompt) => ({
+    ...prompt,
+    providers: prompt.providers
+      ? parseCitationProviders(prompt.providers)
+      : null,
+    tags: tagsByPrompt.get(prompt.id) ?? [],
+  }));
+
+  // Default to the newest run that actually produced evidence, so the matrix
+  // is populated rather than blank while a fresh run is still in flight.
+  const selectedRun =
+    (runId ? runs.find((run) => run.id === runId) : undefined) ??
+    runs.find((run) => run.status === "completed") ??
+    runs[0] ??
+    null;
+
+  const responses = selectedRun
+    ? await db
+        .select({
+          id: aiCitationTrackingResponses.id,
+          promptId: aiCitationTrackingResponses.promptId,
+          provider: aiCitationTrackingResponses.provider,
+          model: aiCitationTrackingResponses.model,
+          brandMentioned: aiCitationTrackingResponses.brandMentioned,
+          errorMessage: aiCitationTrackingResponses.errorMessage,
+        })
+        .from(aiCitationTrackingResponses)
+        .where(eq(aiCitationTrackingResponses.runId, selectedRun.id))
+    : [];
+
+  // Citations for exactly the selected run's responses — the previous build
+  // filtered on projectId alone and returned an unordered slab of every
+  // citation the project had ever collected.
+  const responseIds = responses.map((response) => response.id);
+  const citations = responseIds.length
+    ? await db
+        .select()
+        .from(aiCitationTrackingCitations)
+        .where(inArray(aiCitationTrackingCitations.responseId, responseIds))
+        .orderBy(aiCitationTrackingCitations.citationOrder)
+    : [];
+
+  const citedByResponse = new Map<string, number>();
+  const trackedByResponse = new Map<string, number>();
+  for (const citation of citations) {
+    citedByResponse.set(
+      citation.responseId,
+      (citedByResponse.get(citation.responseId) ?? 0) + 1,
+    );
+    if (citation.isTrackedDomain)
+      trackedByResponse.set(
+        citation.responseId,
+        (trackedByResponse.get(citation.responseId) ?? 0) + 1,
+      );
+  }
+
   return {
-    configured: await hasOpenAiCitationTrackingKey(),
+    configuredProviders,
     config: config
-      ? { ...config, brandAliases: parseAliases(config.brandAliases) }
+      ? {
+          ...config,
+          brandAliases: parseAliases(config.brandAliases),
+          providers: parseCitationProviders(config.providers),
+        }
       : null,
     prompts,
+    tags,
     runs,
-    responses: recentResponseRows,
-    citations,
+    selectedRunId: selectedRun?.id ?? null,
+    cells: responses.map((response) => ({
+      ...response,
+      citationCount: citedByResponse.get(response.id) ?? 0,
+      trackedCitationCount: trackedByResponse.get(response.id) ?? 0,
+    })),
+    topDomains: rankDomains(citations),
   };
+}
+
+function rankDomains(
+  citations: { domain: string; isTrackedDomain: boolean }[],
+): { domain: string; count: number; isTrackedDomain: boolean }[] {
+  const counts = new Map<
+    string,
+    { domain: string; count: number; isTrackedDomain: boolean }
+  >();
+  for (const citation of citations) {
+    const entry = counts.get(citation.domain) ?? {
+      domain: citation.domain,
+      count: 0,
+      isTrackedDomain: citation.isTrackedDomain,
+    };
+    entry.count += 1;
+    counts.set(citation.domain, entry);
+  }
+  return [...counts.values()]
+    .toSorted((a, b) => b.count - a.count)
+    .slice(0, 25);
+}
+
+/** Full evidence for one cell of the matrix. */
+async function getResponseDetail(projectId: string, responseId: string) {
+  const response = (
+    await db
+      .select()
+      .from(aiCitationTrackingResponses)
+      .where(
+        and(
+          eq(aiCitationTrackingResponses.id, responseId),
+          eq(aiCitationTrackingResponses.projectId, projectId),
+        ),
+      )
+      .limit(1)
+  )[0];
+  if (!response) throw new AppError("NOT_FOUND", "Response was not found");
+  const citations = await db
+    .select()
+    .from(aiCitationTrackingCitations)
+    .where(eq(aiCitationTrackingCitations.responseId, responseId))
+    .orderBy(aiCitationTrackingCitations.citationOrder);
+  return { response, citations };
 }
 
 async function saveConfig(input: {
@@ -96,54 +204,57 @@ async function saveConfig(input: {
   organizationId: string;
   userId: string;
   aliases: string[];
+  providers: CitationProvider[];
   scheduleEnabled: boolean;
 }) {
-  const values = {
-    brandAliases: JSON.stringify(normalizeAliases(input.aliases)),
-    scheduleEnabled: input.scheduleEnabled,
-    nextRunAt: input.scheduleEnabled ? nextWeeklyRun() : null,
-    updatedAt: new Date().toISOString(),
-  };
   const existing = (
-    await db
-      .select({ id: aiCitationTrackingConfigs.id })
-      .from(aiCitationTrackingConfigs)
-      .where(eq(aiCitationTrackingConfigs.projectId, input.projectId))
-      .limit(1)
-  )[0];
-  if (existing) {
-    await db
-      .update(aiCitationTrackingConfigs)
-      .set(values)
-      .where(eq(aiCitationTrackingConfigs.id, existing.id));
-  } else {
-    await db.insert(aiCitationTrackingConfigs).values({
-      id: crypto.randomUUID(),
-      projectId: input.projectId,
-      organizationId: input.organizationId,
-      createdByUserId: input.userId,
-      ...values,
-    });
-  }
-}
-
-async function addPrompt(input: {
-  projectId: string;
-  label: string;
-  prompt: string;
-}) {
-  const config = (
     await db
       .select()
       .from(aiCitationTrackingConfigs)
       .where(eq(aiCitationTrackingConfigs.projectId, input.projectId))
       .limit(1)
   )[0];
-  if (!config)
-    throw new AppError(
-      "VALIDATION_ERROR",
-      "Save your tracker settings before adding prompts",
-    );
+
+  const values = {
+    brandAliases: JSON.stringify(normalizeAliases(input.aliases)),
+    providers: serializeCitationProviders(input.providers),
+    scheduleEnabled: input.scheduleEnabled,
+    updatedAt: new Date().toISOString(),
+  };
+
+  if (existing) {
+    await db
+      .update(aiCitationTrackingConfigs)
+      .set({
+        ...values,
+        // Only (re)arm the clock on a real transition. Editing aliases used to
+        // reset nextRunAt, silently pushing the weekly run out another 7 days.
+        nextRunAt: !input.scheduleEnabled
+          ? null
+          : (existing.nextRunAt ?? nextWeeklyRun()),
+      })
+      .where(eq(aiCitationTrackingConfigs.id, existing.id));
+    return;
+  }
+
+  await db.insert(aiCitationTrackingConfigs).values({
+    id: crypto.randomUUID(),
+    projectId: input.projectId,
+    organizationId: input.organizationId,
+    createdByUserId: input.userId,
+    nextRunAt: input.scheduleEnabled ? nextWeeklyRun() : null,
+    ...values,
+  });
+}
+
+async function addPrompt(input: {
+  projectId: string;
+  label: string;
+  prompt: string;
+  providers: CitationProvider[] | null;
+  tags: string[];
+}) {
+  const config = await requireConfig(input.projectId);
   const count = await db
     .select({ id: aiCitationTrackingPrompts.id })
     .from(aiCitationTrackingPrompts)
@@ -153,13 +264,46 @@ async function addPrompt(input: {
       "VALIDATION_ERROR",
       `You can track up to ${MAX_PROMPTS_PER_PROJECT} prompts per project`,
     );
+  const id = crypto.randomUUID();
   await db.insert(aiCitationTrackingPrompts).values({
-    id: crypto.randomUUID(),
+    id,
     configId: config.id,
     projectId: input.projectId,
     label: input.label.trim(),
     prompt: input.prompt.trim(),
+    providers: input.providers
+      ? serializeCitationProviders(input.providers)
+      : null,
   });
+  await setPromptTags(input.projectId, id, input.tags);
+  return id;
+}
+
+async function updatePrompt(input: {
+  projectId: string;
+  promptId: string;
+  enabled?: boolean;
+  providers?: CitationProvider[] | null;
+  tags?: string[];
+}) {
+  const changes: Record<string, unknown> = {};
+  if (input.enabled !== undefined) changes.enabled = input.enabled;
+  if (input.providers !== undefined)
+    changes.providers = input.providers
+      ? serializeCitationProviders(input.providers)
+      : null;
+  if (Object.keys(changes).length)
+    await db
+      .update(aiCitationTrackingPrompts)
+      .set(changes)
+      .where(
+        and(
+          eq(aiCitationTrackingPrompts.id, input.promptId),
+          eq(aiCitationTrackingPrompts.projectId, input.projectId),
+        ),
+      );
+  if (input.tags !== undefined)
+    await setPromptTags(input.projectId, input.promptId, input.tags);
 }
 
 async function removePrompt(projectId: string, promptId: string) {
@@ -200,6 +344,15 @@ async function createRun(projectId: string, trigger: "manual" | "scheduled") {
       "VALIDATION_ERROR",
       "Add at least one enabled prompt before running the tracker",
     );
+  const configured = await getConfiguredCitationProviders();
+  const selected = parseCitationProviders(config.providers).filter((provider) =>
+    configured.includes(provider),
+  );
+  if (selected.length === 0)
+    throw new AppError(
+      "VALIDATION_ERROR",
+      "Select at least one AI provider that has an API key configured",
+    );
   const id = crypto.randomUUID();
   await db.insert(aiCitationTrackingRuns).values({
     id,
@@ -209,110 +362,6 @@ async function createRun(projectId: string, trigger: "manual" | "scheduled") {
     promptCount: prompts.length,
   });
   return id;
-}
-
-async function runById(runId: string) {
-  const run = (
-    await db
-      .select()
-      .from(aiCitationTrackingRuns)
-      .where(eq(aiCitationTrackingRuns.id, runId))
-      .limit(1)
-  )[0];
-  if (!run) throw new Error("Citation tracking run was not found");
-  const config = (
-    await db
-      .select()
-      .from(aiCitationTrackingConfigs)
-      .where(eq(aiCitationTrackingConfigs.id, run.configId))
-      .limit(1)
-  )[0];
-  if (!config) throw new Error("Citation tracking configuration was not found");
-  const prompts = await db
-    .select()
-    .from(aiCitationTrackingPrompts)
-    .where(
-      and(
-        eq(aiCitationTrackingPrompts.configId, config.id),
-        eq(aiCitationTrackingPrompts.enabled, true),
-      ),
-    );
-  await db
-    .update(aiCitationTrackingRuns)
-    .set({ status: "running", startedAt: new Date().toISOString() })
-    .where(eq(aiCitationTrackingRuns.id, runId));
-  let succeeded = 0;
-  let failed = 0;
-  const trackedDomains = new Set(
-    parseAliases(config.brandAliases)
-      .map(safeDomain)
-      .filter((domain): domain is string => Boolean(domain)),
-  );
-  for (const prompt of prompts) {
-    try {
-      const result: OpenAiCitationResult = await callOpenAiForCitationTracking(
-        prompt.prompt,
-      );
-      const responseId = crypto.randomUUID();
-      await db.insert(aiCitationTrackingResponses).values({
-        id: responseId,
-        runId,
-        promptId: prompt.id,
-        projectId: run.projectId,
-        model: result.model,
-        answerText: result.answerText,
-        rawResponse: result.rawResponse,
-        inputTokens: result.inputTokens,
-        outputTokens: result.outputTokens,
-      });
-      if (result.citations.length)
-        await db.insert(aiCitationTrackingCitations).values(
-          result.citations.flatMap((citation, citationOrder) => {
-            const domain = safeDomain(citation.url);
-            return domain
-              ? [
-                  {
-                    id: crypto.randomUUID(),
-                    responseId,
-                    projectId: run.projectId,
-                    url: citation.url,
-                    domain,
-                    title: citation.title,
-                    citationOrder,
-                    isTrackedDomain: trackedDomains.has(domain),
-                  },
-                ]
-              : [];
-          }),
-        );
-      succeeded += 1;
-    } catch (error) {
-      await db.insert(aiCitationTrackingResponses).values({
-        id: crypto.randomUUID(),
-        runId,
-        promptId: prompt.id,
-        projectId: run.projectId,
-        model: "unknown",
-        errorMessage:
-          error instanceof Error ? error.message : "OpenAI collection failed",
-      });
-      failed += 1;
-    }
-  }
-  const completedAt = new Date().toISOString();
-  await db
-    .update(aiCitationTrackingRuns)
-    .set({
-      status: failed === prompts.length ? "failed" : "completed",
-      succeededCount: succeeded,
-      failedCount: failed,
-      completedAt,
-      errorMessage: failed
-        ? `${failed} prompt${failed === 1 ? "" : "s"} failed`
-        : null,
-    })
-    .where(eq(aiCitationTrackingRuns.id, runId));
-  return { succeeded, failed };
 }
 
 async function listDueConfigs(nowIso: string) {
@@ -337,13 +386,25 @@ async function advanceSchedule(id: string) {
     .where(eq(aiCitationTrackingConfigs.id, id));
 }
 
+/**
+ * Each Workflow step runs in its own invocation, so the configured-provider
+ * set is resolved per step rather than threaded through the workflow payload.
+ */
 export const AiCitationTrackingService = {
   getOverview,
+  getResponseDetail,
   saveConfig,
   addPrompt,
+  updatePrompt,
   removePrompt,
   createRun,
-  runById,
+  planRun: async (runId: string) =>
+    planRun(runId, await getConfiguredCitationProviders()),
+  runPromptTask: async (runId: string, promptId: string) =>
+    runPromptTask(runId, promptId, await getConfiguredCitationProviders()),
+  finalizeRun,
   listDueConfigs,
   advanceSchedule,
+  // Exported for the provider catalogue the settings UI renders.
+  allProviders: CITATION_PROVIDERS,
 };

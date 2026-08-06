@@ -130,6 +130,8 @@ export const {
   bingAiQueryCitations,
   aiCitationTrackingConfigs,
   aiCitationTrackingPrompts,
+  aiCitationTrackingTags,
+  aiCitationTrackingPromptTags,
   aiCitationTrackingRuns,
   aiCitationTrackingResponses,
   aiCitationTrackingCitations,
