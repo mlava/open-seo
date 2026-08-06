@@ -57,7 +57,9 @@ const PROVIDER_ENV: Record<
   google: {
     apiKey: "GOOGLE_GENERATIVE_AI_API_KEY",
     model: "AI_CITATION_MODEL_GOOGLE",
-    defaultModel: "gemini-2.5-pro",
+    // gemini-2.5-pro is closed to new API keys. Flash rather than flash-lite:
+    // grounded search quality is the whole product here.
+    defaultModel: "gemini-3.5-flash",
   },
   perplexity: {
     apiKey: "PERPLEXITY_API_KEY",
