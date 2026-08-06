@@ -2,82 +2,73 @@ import * as React from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { getStandardErrorMessage } from "@/client/lib/error-messages";
+import { TagChip } from "@/client/features/saved-keywords/TagChip";
 import {
-  addAiCitationTrackingPrompt,
   getAiCitationTrackingOverview,
-  removeAiCitationTrackingPrompt,
-  saveAiCitationTrackingSettings,
   startAiCitationTrackingRun,
 } from "@/serverFunctions/ai-citation-tracking";
+import {
+  sortCitationProviders,
+  type CitationProvider,
+} from "@/shared/ai-citation-providers";
+import {
+  CitationMatrix,
+  type MatrixCell,
+  type MatrixPrompt,
+} from "./CitationMatrix";
+import { CitationProvidersCard } from "./CitationProvidersCard";
+import { CitationResponseModal } from "./CitationResponseModal";
+import { PanelError, PanelLoading, StatTile } from "./citationParts";
+import {
+  PromptRegistryPanel,
+  type RegistryPrompt,
+} from "./PromptRegistryPanel";
+import { TrackerSettingsPanel } from "./TrackerSettingsPanel";
 
-/** Private historical evidence from OpenAI web-search responses. */
+type Overview = Awaited<ReturnType<typeof getAiCitationTrackingOverview>>;
+type OpenCell = { responseId: string; promptLabel: string };
+
+/**
+ * Private, historical evidence of how AI assistants answer your tracked
+ * prompts and which sources they cite. Each assistant is called directly with
+ * the operator's own API key and its native web search — an aggregator's
+ * search would measure the aggregator, not the assistant.
+ */
 export function AiCitationTrackingPage({ projectId }: { projectId: string }) {
   const queryClient = useQueryClient();
-  const key = React.useMemo(
-    () => ["aiCitationTracking", projectId],
-    [projectId],
-  );
-  const query = useQuery({
-    queryKey: key,
-    queryFn: () => getAiCitationTrackingOverview({ data: { projectId } }),
-  });
-  const [aliases, setAliases] = React.useState("");
-  const [scheduleEnabled, setScheduleEnabled] = React.useState(true);
-  const [label, setLabel] = React.useState("");
-  const [prompt, setPrompt] = React.useState("");
+  const [runId, setRunId] = React.useState<string | undefined>(undefined);
+  const [tagFilter, setTagFilter] = React.useState<string | null>(null);
+  const [openCell, setOpenCell] = React.useState<OpenCell | null>(null);
 
-  React.useEffect(() => {
-    if (!query.data?.config) return;
-    setAliases(query.data.config.brandAliases.join(", "));
-    setScheduleEnabled(query.data.config.scheduleEnabled);
-  }, [query.data?.config]);
-  const refresh = () => queryClient.invalidateQueries({ queryKey: key });
-  const settings = useMutation({
-    mutationFn: () =>
-      saveAiCitationTrackingSettings({
-        data: {
-          projectId,
-          aliases: aliases
-            .split(",")
-            .map((value) => value.trim())
-            .filter(Boolean),
-          scheduleEnabled,
-        },
-      }),
-    onSuccess: () => {
-      toast.success("Tracker settings saved");
-      void refresh();
-    },
-    onError: (error) => toast.error(getStandardErrorMessage(error)),
+  const query = useQuery({
+    queryKey: ["aiCitationTracking", projectId, runId ?? "latest"],
+    queryFn: () =>
+      getAiCitationTrackingOverview({ data: { projectId, runId } }),
   });
-  const addPrompt = useMutation({
-    mutationFn: () =>
-      addAiCitationTrackingPrompt({ data: { projectId, label, prompt } }),
-    onSuccess: () => {
-      setLabel("");
-      setPrompt("");
-      toast.success("Prompt added");
-      void refresh();
-    },
-    onError: (error) => toast.error(getStandardErrorMessage(error)),
-  });
-  const removePrompt = useMutation({
-    mutationFn: (promptId: string) =>
-      removeAiCitationTrackingPrompt({ data: { projectId, promptId } }),
-    onSuccess: () => void refresh(),
-    onError: (error) => toast.error(getStandardErrorMessage(error)),
-  });
+
+  const refresh = () =>
+    void queryClient.invalidateQueries({
+      queryKey: ["aiCitationTracking", projectId],
+    });
+
   const startRun = useMutation({
     mutationFn: () => startAiCitationTrackingRun({ data: { projectId } }),
     onSuccess: () => {
       toast.success("Citation-tracking batch started");
-      void refresh();
+      refresh();
     },
     onError: (error) => toast.error(getStandardErrorMessage(error)),
   });
+
   const data = query.data;
-  const trackedCitations =
-    data?.citations.filter((citation) => citation.isTrackedDomain).length ?? 0;
+  const configuredProviders = data?.configuredProviders ?? [];
+  const defaultProviders = data?.config?.providers ?? [];
+  // Columns are the providers the selected run could actually have used.
+  const columns = sortCitationProviders(
+    defaultProviders.filter((provider) =>
+      configuredProviders.includes(provider),
+    ),
+  );
 
   return (
     <div className="space-y-6 p-4 sm:p-6">
@@ -85,215 +76,287 @@ export function AiCitationTrackingPage({ projectId }: { projectId: string }) {
         <div>
           <h1 className="text-2xl font-semibold">AI Citation Tracking</h1>
           <p className="text-sm text-base-content/70">
-            Weekly, private evidence of how OpenAI web search answers and cites
-            your tracked topics.
+            Weekly, private evidence of how AI assistants answer your tracked
+            prompts and which sources they cite.
           </p>
         </div>
         <button
           type="button"
           className="btn btn-primary btn-sm"
           disabled={
-            !data?.configured ||
             startRun.isPending ||
-            !data.config ||
-            data.prompts.length === 0
+            !data?.config ||
+            data.prompts.length === 0 ||
+            columns.length === 0
           }
           onClick={() => startRun.mutate()}
         >
           {startRun.isPending ? "Starting…" : "Run now"}
         </button>
       </div>
-      {!data?.configured ? (
-        <div className="alert alert-warning">
-          <span>
-            Set the <code>OPENAI_API_KEY</code> Worker secret to enable
-            collection. ChatGPT sign-in cannot supply API usage.
-          </span>
-        </div>
-      ) : null}
+
       {query.isLoading ? (
-        <span className="loading loading-spinner loading-sm" />
-      ) : query.isError ? (
-        <div className="alert alert-error">
-          <span>Couldn’t load citation tracking.</span>
-        </div>
+        <PanelLoading label="Loading citation tracking…" />
+      ) : query.isError || !data ? (
+        <PanelError onRetry={() => void query.refetch()} />
       ) : (
         <>
-          <section className="grid gap-3 sm:grid-cols-3">
-            <Metric label="Tracked prompts" value={data?.prompts.length ?? 0} />
-            <Metric label="Tracked-domain citations" value={trackedCitations} />
-            <Metric
-              label="Completed runs"
-              value={
-                data?.runs.filter((run) => run.status === "completed").length ??
-                0
-              }
-            />
-          </section>
-          <section className="rounded-xl border border-base-300 bg-base-100 p-4 shadow-sm">
-            <h2 className="font-semibold">Tracker settings</h2>
-            <p className="mt-1 text-sm text-base-content/65">
-              Use domains such as <code>scholarsidekick.com</code> (not paths)
-              to mark your own citations.
-            </p>
-            <form
-              className="mt-4 space-y-3"
-              onSubmit={(event) => {
-                event.preventDefault();
-                settings.mutate();
-              }}
-            >
-              <input
-                className="input input-bordered w-full"
-                value={aliases}
-                onChange={(event) => setAliases(event.target.value)}
-                placeholder="scholarsidekick.com, agentready.io"
-              />
-              <label className="label w-fit cursor-pointer gap-3">
-                <span className="label-text">Run weekly</span>
-                <input
-                  type="checkbox"
-                  className="toggle toggle-primary"
-                  checked={scheduleEnabled}
-                  onChange={(event) => setScheduleEnabled(event.target.checked)}
-                />
-              </label>
-              <button className="btn btn-sm" disabled={settings.isPending}>
-                {settings.isPending ? "Saving…" : "Save settings"}
-              </button>
-            </form>
-          </section>
-          <section className="rounded-xl border border-base-300 bg-base-100 p-4 shadow-sm">
-            <h2 className="font-semibold">Prompt registry</h2>
-            <p className="mt-1 text-sm text-base-content/65">
-              Keep prompts stable to make week-over-week evidence comparable.
-            </p>
-            <form
-              className="mt-4 grid gap-2"
-              onSubmit={(event) => {
-                event.preventDefault();
-                addPrompt.mutate();
-              }}
-            >
-              <input
-                className="input input-bordered"
-                value={label}
-                onChange={(event) => setLabel(event.target.value)}
-                placeholder="Prompt label"
-                maxLength={120}
-              />
-              <textarea
-                className="textarea textarea-bordered min-h-24"
-                value={prompt}
-                onChange={(event) => setPrompt(event.target.value)}
-                placeholder="What are the best scholarly identifier lookup tools?"
-                maxLength={4000}
-              />
-              <div>
-                <button
-                  className="btn btn-sm"
-                  disabled={
-                    !label.trim() || !prompt.trim() || addPrompt.isPending
-                  }
-                >
-                  {addPrompt.isPending ? "Adding…" : "Add prompt"}
-                </button>
-              </div>
-            </form>
-            <div className="mt-4 space-y-2">
-              {data?.prompts.map((item) => (
-                <div
-                  key={item.id}
-                  className="flex items-start justify-between gap-3 rounded-lg bg-base-200 p-3"
-                >
-                  <div>
-                    <p className="font-medium">{item.label}</p>
-                    <p className="mt-1 whitespace-pre-wrap text-sm text-base-content/70">
-                      {item.prompt}
-                    </p>
-                  </div>
-                  <button
-                    className="btn btn-ghost btn-xs text-error"
-                    onClick={() => removePrompt.mutate(item.id)}
-                    disabled={removePrompt.isPending}
-                  >
-                    Remove
-                  </button>
-                </div>
-              ))}
-              {data?.prompts.length === 0 ? (
-                <p className="text-sm text-base-content/60">No prompts yet.</p>
-              ) : null}
-            </div>
-          </section>
-          <section className="rounded-xl border border-base-300 bg-base-100 p-4 shadow-sm">
-            <h2 className="font-semibold">Recent evidence</h2>
-            <div className="mt-3 overflow-x-auto">
-              <table className="table table-sm">
-                <thead>
-                  <tr>
-                    <th>When</th>
-                    <th>Run</th>
-                    <th>Prompts</th>
-                    <th>Result</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data?.runs.map((run) => (
-                    <tr key={run.id}>
-                      <td>{new Date(run.createdAt).toLocaleString()}</td>
-                      <td>{run.trigger}</td>
-                      <td>{run.promptCount}</td>
-                      <td>
-                        {run.status} · {run.succeededCount} succeeded
-                        {run.failedCount ? `, ${run.failedCount} failed` : ""}
-                      </td>
-                    </tr>
-                  ))}
-                  {data?.runs.length === 0 ? (
-                    <tr>
-                      <td colSpan={4} className="text-base-content/60">
-                        No runs yet.
-                      </td>
-                    </tr>
-                  ) : null}
-                </tbody>
-              </table>
-            </div>
-          </section>
-          <section className="rounded-xl border border-base-300 bg-base-100 p-4 shadow-sm">
-            <h2 className="font-semibold">Latest cited sources</h2>
-            <div className="mt-3 space-y-2">
-              {data?.citations.slice(0, 30).map((citation) => (
-                <a
-                  key={citation.id}
-                  className="block truncate text-sm link link-hover"
-                  href={citation.url}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  {citation.isTrackedDomain ? "✓ " : ""}
-                  {citation.title ?? citation.domain}
-                </a>
-              ))}
-              {data?.citations.length === 0 ? (
-                <p className="text-sm text-base-content/60">
-                  Sources appear here after the first completed run.
-                </p>
-              ) : null}
-            </div>
-          </section>
+          <SummaryTiles data={data} columnCount={columns.length} />
+
+          <CitationProvidersCard configured={configuredProviders} />
+
+          <ResultsSection
+            data={data}
+            columns={columns}
+            tagFilter={tagFilter}
+            onTagFilter={setTagFilter}
+            onSelectRun={setRunId}
+            onSelectCell={setOpenCell}
+          />
+
+          <TopDomains data={data} />
+
+          <TrackerSettingsPanel
+            // Remount when the stored config changes so the form picks up
+            // server state without an effect that fights the user's typing.
+            key={data.config?.updatedAt ?? "new"}
+            projectId={projectId}
+            configuredProviders={configuredProviders}
+            initialAliases={data.config?.brandAliases ?? []}
+            initialProviders={
+              data.config?.providers ??
+              configuredProviders.filter((provider) => provider === "openai")
+            }
+            initialScheduleEnabled={data.config?.scheduleEnabled ?? true}
+            onSaved={refresh}
+          />
+
+          <PromptRegistryPanel
+            projectId={projectId}
+            prompts={data.prompts as RegistryPrompt[]}
+            configuredProviders={configuredProviders}
+            defaultProviders={defaultProviders}
+            onChanged={refresh}
+          />
+
+          <RunHistoryTable runs={data.runs} />
         </>
       )}
+
+      {openCell ? (
+        <CitationResponseModal
+          projectId={projectId}
+          responseId={openCell.responseId}
+          promptLabel={openCell.promptLabel}
+          onClose={() => setOpenCell(null)}
+        />
+      ) : null}
     </div>
   );
 }
 
-function Metric({ label, value }: { label: string; value: number }) {
+function SummaryTiles({
+  data,
+  columnCount,
+}: {
+  data: Overview;
+  columnCount: number;
+}) {
+  const trackedCitations = data.cells.reduce(
+    (total, cell) => total + cell.trackedCitationCount,
+    0,
+  );
+  const enabled = data.prompts.filter((prompt) => prompt.enabled).length;
+  const completed = data.runs.filter(
+    (run) => run.status === "completed",
+  ).length;
+
   return (
-    <div className="rounded-xl border border-base-300 bg-base-100 p-4 shadow-sm">
-      <p className="text-sm text-base-content/65">{label}</p>
-      <p className="mt-1 text-2xl font-semibold">{value}</p>
-    </div>
+    <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <StatTile
+        label="Tracked prompts"
+        value={String(data.prompts.length)}
+        hint={`${enabled} enabled`}
+      />
+      <StatTile
+        label="Providers"
+        value={String(columnCount)}
+        hint={`${data.configuredProviders.length} with a key`}
+      />
+      <StatTile
+        label="Your citations"
+        value={String(trackedCitations)}
+        hint="in the selected run"
+      />
+      <StatTile label="Completed runs" value={String(completed)} />
+    </section>
+  );
+}
+
+function ResultsSection({
+  data,
+  columns,
+  tagFilter,
+  onTagFilter,
+  onSelectRun,
+  onSelectCell,
+}: {
+  data: Overview;
+  columns: CitationProvider[];
+  tagFilter: string | null;
+  onTagFilter: (tagId: string | null) => void;
+  onSelectRun: (runId: string) => void;
+  onSelectCell: (cell: OpenCell) => void;
+}) {
+  const prompts = data.prompts.filter(
+    (prompt) => !tagFilter || prompt.tags.some((tag) => tag.id === tagFilter),
+  );
+  const promptLabels = new Map(
+    data.prompts.map((prompt) => [prompt.id, prompt.label]),
+  );
+  const hasRun = data.runs.some((run) => run.id === data.selectedRunId);
+
+  return (
+    <section className="rounded-xl border border-base-300 bg-base-100 p-4 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="font-semibold">Results by prompt and provider</h2>
+          <p className="mt-1 text-sm text-base-content/65">
+            Select a cell to read the answer and the sources it cited.
+          </p>
+        </div>
+        {data.runs.length > 0 ? (
+          <select
+            className="select select-bordered select-sm min-w-56"
+            aria-label="Run"
+            value={data.selectedRunId ?? ""}
+            onChange={(event) => onSelectRun(event.target.value)}
+          >
+            {data.runs.map((run) => (
+              <option key={run.id} value={run.id}>
+                {new Date(run.createdAt).toLocaleString()} · {run.trigger} ·{" "}
+                {run.status}
+              </option>
+            ))}
+          </select>
+        ) : null}
+      </div>
+
+      {data.tags.length > 0 ? (
+        <div className="mt-3 flex flex-wrap items-center gap-1.5">
+          <button
+            type="button"
+            className={`btn btn-xs ${tagFilter ? "btn-ghost" : "btn-neutral"}`}
+            onClick={() => onTagFilter(null)}
+          >
+            All
+          </button>
+          {data.tags.map((tag) => (
+            <TagChip
+              key={tag.id}
+              tag={tag}
+              size="xs"
+              selected={tagFilter === tag.id}
+              onClick={() => onTagFilter(tagFilter === tag.id ? null : tag.id)}
+            />
+          ))}
+        </div>
+      ) : null}
+
+      <div className="mt-4">
+        {!hasRun ? (
+          <p className="text-sm text-base-content/60">
+            Evidence appears here after the first run completes.
+          </p>
+        ) : columns.length === 0 ? (
+          <p className="text-sm text-base-content/60">
+            Select at least one provider in tracker settings.
+          </p>
+        ) : (
+          <CitationMatrix
+            prompts={prompts as MatrixPrompt[]}
+            providers={columns}
+            cells={data.cells as MatrixCell[]}
+            onSelectCell={(cell) =>
+              onSelectCell({
+                responseId: cell.id,
+                promptLabel: promptLabels.get(cell.promptId) ?? "Prompt",
+              })
+            }
+          />
+        )}
+      </div>
+    </section>
+  );
+}
+
+function TopDomains({ data }: { data: Overview }) {
+  if (data.topDomains.length === 0) return null;
+  return (
+    <section className="rounded-xl border border-base-300 bg-base-100 p-4 shadow-sm">
+      <h2 className="font-semibold">Most-cited domains</h2>
+      <p className="mt-1 text-sm text-base-content/65">
+        Across every answer in the selected run.
+      </p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {data.topDomains.map((entry) => (
+          <span
+            key={entry.domain}
+            className={`inline-flex items-center gap-2 rounded-md px-2 py-1 text-sm ${
+              entry.isTrackedDomain
+                ? "bg-success/15 text-success"
+                : "bg-base-200"
+            }`}
+          >
+            {entry.domain}
+            <span className="text-xs tabular-nums opacity-70">
+              {entry.count}
+            </span>
+          </span>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function RunHistoryTable({ runs }: { runs: Overview["runs"] }) {
+  return (
+    <section className="rounded-xl border border-base-300 bg-base-100 p-4 shadow-sm">
+      <h2 className="font-semibold">Run history</h2>
+      <div className="mt-3 overflow-x-auto">
+        <table className="table table-sm">
+          <thead>
+            <tr>
+              <th>When</th>
+              <th>Trigger</th>
+              <th>Prompts</th>
+              <th>Calls</th>
+              <th>Result</th>
+            </tr>
+          </thead>
+          <tbody>
+            {runs.map((run) => (
+              <tr key={run.id}>
+                <td>{new Date(run.createdAt).toLocaleString()}</td>
+                <td>{run.trigger}</td>
+                <td className="tabular-nums">{run.promptCount}</td>
+                <td className="tabular-nums">{run.taskCount}</td>
+                <td>
+                  {run.status} · {run.succeededCount} succeeded
+                  {run.failedCount ? `, ${run.failedCount} failed` : ""}
+                </td>
+              </tr>
+            ))}
+            {runs.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="text-base-content/60">
+                  No runs yet.
+                </td>
+              </tr>
+            ) : null}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }

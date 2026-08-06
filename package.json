@@ -74,7 +74,12 @@
     }
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.85",
+    "@ai-sdk/google": "^3.0.103",
+    "@ai-sdk/openai": "^3.0.74",
+    "@ai-sdk/perplexity": "^3.0.48",
     "@ai-sdk/react": "^3.0.211",
+    "@ai-sdk/xai": "^3.0.113",
     "@cloudflare/ai-chat": "^0.8.4",
     "@cloudflare/think": "0.12.1",
     "@cloudflare/workers-oauth-provider": "^0.4.0",
@@ -146,5 +151,11 @@
     "vite-tsconfig-paths": "^5.1.4",
     "vitest": "^3.2.6",
     "wrangler": "^4.105.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "@ai-sdk/provider": "3.0.14",
+      "@ai-sdk/provider-utils": "4.0.41"
+    }
   }
 }

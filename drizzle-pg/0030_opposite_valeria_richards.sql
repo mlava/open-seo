@@ -1,0 +1,1 @@
+ALTER TABLE "ai_citation_tracking_responses" DROP COLUMN "raw_response";

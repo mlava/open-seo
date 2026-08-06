@@ -10,6 +10,7 @@ import {
   LayoutDashboard,
   Link2,
   MessageSquare,
+  Quote,
   Search,
   Sparkles,
   TrendingUp,
@@ -100,7 +101,7 @@ const projectNavItems = [
   {
     to: "/p/$projectId/ai-citation-tracking" as const,
     label: "AI Citation Tracking",
-    icon: MessageSquare,
+    icon: Quote,
   },
 ] as const;
 
@@ -146,7 +147,6 @@ export function getProjectNavGroups(projectId: string) {
         byPath("/p/$projectId/backlinks"),
         byPath("/p/$projectId/brand-lookup"),
         byPath("/p/$projectId/prompt-explorer"),
-        byPath("/p/$projectId/ai-citation-tracking"),
       ],
     },
     {
@@ -154,6 +154,9 @@ export function getProjectNavGroups(projectId: string) {
       items: [
         byPath("/p/$projectId/search-performance"),
         byPath("/p/$projectId/bing"),
+        // Tracked evidence about this project's own brand, not a point-at-
+        // anything lookup — so it belongs here rather than under Research.
+        byPath("/p/$projectId/ai-citation-tracking"),
         byPath("/p/$projectId/traffic"),
         byPath("/p/$projectId/pagespeed"),
         byPath("/p/$projectId/revenue"),
