@@ -269,6 +269,10 @@ const dataEnv = {
   GOOGLE_CLIENT_SECRET: optionalSecret("GOOGLE_CLIENT_SECRET"),
   OPENROUTER_API_KEY: optionalSecret("OPENROUTER_API_KEY"),
   OPENROUTER_MODEL: optionalVar("OPENROUTER_MODEL"),
+  // AI Citation Tracking uses OpenAI's Responses API with web search. This is
+  // distinct from the OpenRouter key used by the in-app chat agents.
+  OPENAI_API_KEY: optionalSecret("OPENAI_API_KEY"),
+  OPENAI_CITATION_TRACKING_MODEL: optionalVar("OPENAI_CITATION_TRACKING_MODEL"),
   AUTUMN_SECRET_KEY: optionalSecret("AUTUMN_SECRET_KEY"),
   AUTUMN_WEBHOOK_SECRET: optionalSecret("AUTUMN_WEBHOOK_SECRET"),
   LOOPS_API_KEY: optionalSecret("LOOPS_API_KEY"),

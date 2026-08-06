@@ -11,6 +11,7 @@ import * as sqlitePsi from "./psi.schema";
 import * as sqliteReddit from "./reddit-attribution.schema";
 import * as sqliteRevenue from "./revenue.schema";
 import * as sqliteTelemetry from "./telemetry.schema";
+import * as sqliteAiCitationTracking from "./ai-citation-tracking.schema";
 import * as pgApp from "./pg/app.schema";
 import * as pgAudit from "./pg/audit.schema";
 import * as pgSam from "./pg/sam.schema";
@@ -23,6 +24,7 @@ import * as pgPsi from "./pg/psi.schema";
 import * as pgReddit from "./pg/reddit-attribution.schema";
 import * as pgRevenue from "./pg/revenue.schema";
 import * as pgTelemetry from "./pg/telemetry.schema";
+import * as pgAiCitationTracking from "./pg/ai-citation-tracking.schema";
 
 // Canonical schema barrel. Repositories import their tables from here and the
 // provider-aware `db` from "@/db", so each repository is written ONCE for both
@@ -45,7 +47,8 @@ type AppSchema = typeof sqliteApp &
   typeof sqlitePsi &
   typeof sqliteReddit &
   typeof sqliteRevenue &
-  typeof sqliteTelemetry;
+  typeof sqliteTelemetry &
+  typeof sqliteAiCitationTracking;
 
 const runtimeSchema =
   getDatabaseProvider() === "postgres"
@@ -62,6 +65,7 @@ const runtimeSchema =
         ...pgReddit,
         ...pgRevenue,
         ...pgTelemetry,
+        ...pgAiCitationTracking,
       }
     : {
         ...sqliteApp,
@@ -76,6 +80,7 @@ const runtimeSchema =
         ...sqliteReddit,
         ...sqliteRevenue,
         ...sqliteTelemetry,
+        ...sqliteAiCitationTracking,
       };
 
 // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- guarded by schema-parity.test.ts
@@ -123,4 +128,9 @@ export const {
   bingAiCitationSnapshots,
   bingAiPageCitations,
   bingAiQueryCitations,
+  aiCitationTrackingConfigs,
+  aiCitationTrackingPrompts,
+  aiCitationTrackingRuns,
+  aiCitationTrackingResponses,
+  aiCitationTrackingCitations,
 } = schema;
