@@ -235,8 +235,13 @@ function toolOutputSources(output: unknown): CitationSource[] {
 }
 
 const GROUNDING_REDIRECT_HOST = "vertexaisearch.cloud.google.com";
-/** Bounded so one chatty answer cannot turn into 100 outbound requests. */
-const MAX_REDIRECTS_RESOLVED = 25;
+/**
+ * Each resolution is an outbound subrequest and a Worker invocation only gets
+ * 50, shared with every provider call and D1 query in the same batch. Ten
+ * covers the sources an answer actually leans on; the rest keep the redirect
+ * URL, and their Gemini title still carries the domain.
+ */
+const MAX_REDIRECTS_RESOLVED = 10;
 
 export function isGroundingRedirect(url: string): boolean {
   try {

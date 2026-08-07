@@ -11,6 +11,14 @@ export interface AiCitationTrackingWorkflowParams {
 }
 
 /**
+ * Prompts handled before the instance hibernates to reset its subrequest
+ * budget. One prompt spends roughly a dozen subrequests (provider calls, any
+ * Gemini redirect resolutions, and the D1 reads and writes around them), so
+ * this stays well inside the 50-per-invocation Free-plan cap.
+ */
+const PROMPTS_PER_INVOCATION = 3;
+
+/**
  * One durable step per tracked prompt rather than one step for the whole batch.
  * A batch can be 50 prompts across 5 providers; as a single step it would blow
  * any sane step timeout, and a retry would re-ask every provider from the top.
@@ -34,7 +42,16 @@ export class AiCitationTrackingWorkflow extends WorkflowEntrypoint<
       () => AiCitationTrackingService.planRun(runId),
     );
 
-    for (const promptId of plan.promptIds) {
+    for (const [index, promptId] of plan.promptIds.entries()) {
+      // A Worker invocation has a hard subrequest cap (50 on Free), and every
+      // provider call, redirect resolution and D1 query spends one. Running 33
+      // prompt steps back to back exhausted it after six prompts and the
+      // remaining 108 provider calls all failed with "Too many subrequests".
+      // Sleeping hibernates the instance, so the engine resumes the next batch
+      // in a fresh invocation with a fresh budget.
+      if (index > 0 && index % PROMPTS_PER_INVOCATION === 0) {
+        await step.sleep(`yield-${index}`, "1 second");
+      }
       try {
         await pgStep(
           step,
