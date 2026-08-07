@@ -43,7 +43,7 @@ async function requireConfig(projectId: string) {
 }
 
 /**
- * Page payload. Deliberately excludes answer text — one run holds up to 250
+ * Page payload. Deliberately excludes answer text — one run holds up to 400
  * answers, so the drill-in fetches a single response on demand instead.
  */
 async function getOverview(projectId: string, runId?: string) {

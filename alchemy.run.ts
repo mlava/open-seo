@@ -281,6 +281,16 @@ const dataEnv = {
   AI_CITATION_MODEL_GOOGLE: optionalVar("AI_CITATION_MODEL_GOOGLE"),
   AI_CITATION_MODEL_PERPLEXITY: optionalVar("AI_CITATION_MODEL_PERPLEXITY"),
   AI_CITATION_MODEL_XAI: optionalVar("AI_CITATION_MODEL_XAI"),
+  // SerpApi reads the AI answers on a search results page (Google AI Overview
+  // and AI Mode, Bing Copilot), none of which has a first-party API.
+  SERPAPI_KEY: optionalSecret("SERPAPI_KEY"),
+  AI_CITATION_MODEL_GOOGLE_AI_OVERVIEW: optionalVar(
+    "AI_CITATION_MODEL_GOOGLE_AI_OVERVIEW",
+  ),
+  AI_CITATION_MODEL_GOOGLE_AI_MODE: optionalVar(
+    "AI_CITATION_MODEL_GOOGLE_AI_MODE",
+  ),
+  AI_CITATION_MODEL_BING_COPILOT: optionalVar("AI_CITATION_MODEL_BING_COPILOT"),
   AUTUMN_SECRET_KEY: optionalSecret("AUTUMN_SECRET_KEY"),
   AUTUMN_WEBHOOK_SECRET: optionalSecret("AUTUMN_WEBHOOK_SECRET"),
   LOOPS_API_KEY: optionalSecret("LOOPS_API_KEY"),

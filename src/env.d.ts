@@ -73,12 +73,20 @@ declare namespace Cloudflare {
     GOOGLE_GENERATIVE_AI_API_KEY?: string;
     PERPLEXITY_API_KEY?: string;
     XAI_API_KEY?: string;
+    // SerpApi key for the AI-answer surfaces that have no first-party API:
+    // Google AI Overview, Google AI Mode and Bing Copilot. One key enables all
+    // three; SerpApi bills per search, so cost scales with prompts x engines.
+    SERPAPI_KEY?: string;
     // Optional per-provider model overrides (defaults in citationClient.ts).
+    // For the SerpApi surfaces the "model" is the engine name.
     AI_CITATION_MODEL_OPENAI?: string;
     AI_CITATION_MODEL_ANTHROPIC?: string;
     AI_CITATION_MODEL_GOOGLE?: string;
     AI_CITATION_MODEL_PERPLEXITY?: string;
     AI_CITATION_MODEL_XAI?: string;
+    AI_CITATION_MODEL_GOOGLE_AI_OVERVIEW?: string;
+    AI_CITATION_MODEL_GOOGLE_AI_MODE?: string;
+    AI_CITATION_MODEL_BING_COPILOT?: string;
 
     // Stripe secret (or restricted read) API key for the Revenue page and the
     // get_stripe_revenue MCP tool. May be organization-level — the target

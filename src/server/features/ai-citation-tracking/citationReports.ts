@@ -16,7 +16,7 @@ import { parseCitationProviders } from "@/shared/ai-citation-providers";
  * prompt, and never need the config/registry plumbing the tab renders.
  *
  * Every query filters by a single indexed column or joins on one. None binds a
- * parameter per row — a full run is 250 responses and D1 caps a statement at
+ * parameter per row — a full run is 400 responses and D1 caps a statement at
  * ~100 bound parameters.
  */
 
@@ -225,7 +225,7 @@ export async function getResponseCitations(
     .where(
       and(
         eq(aiCitationTrackingResponses.projectId, projectId),
-        // One prompt across five providers is at most five ids.
+        // One prompt across every surface is at most eight ids.
         inArray(aiCitationTrackingCitations.responseId, [...responseIds]),
       ),
     )
