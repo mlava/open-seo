@@ -228,8 +228,13 @@ function ResultsSection({
         </div>
         <div className="flex items-center gap-2">
           {data.runs.length > 0 ? (
+            // shrink-0, not a min-width: as a flex item this was being
+            // compressed below its own content, so the longest option ran into
+            // the dropdown arrow. A min-width only floors that, it does not
+            // stop it. max-w-full still lets a narrow viewport bound it rather
+            // than overflowing the page.
             <select
-              className="select select-bordered select-sm min-w-56"
+              className="select select-bordered select-sm max-w-full shrink-0"
               aria-label="Run"
               value={data.selectedRunId ?? ""}
               onChange={(event) => onSelectRun(event.target.value)}
