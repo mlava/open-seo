@@ -145,6 +145,10 @@ async function callProvider(
         model: openai.responses(modelId),
         tools: { web_search: openai.tools.webSearch({}) },
         prompt,
+        // The Responses API stores answers server-side by default. This tab's
+        // whole premise is that the evidence is private and project-scoped, so
+        // opt out and keep the only copy in our own D1.
+        providerOptions: { openai: { store: false } },
       });
     }
     case "anthropic": {
