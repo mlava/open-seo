@@ -98,7 +98,9 @@ describe("get_bing_ai_citations", () => {
 
     expect(result.structuredContent).toMatchObject({ ok: true, rowCount: 0 });
     const first = result.content[0];
-    expect(first.type === "text" && first.text).toContain("Upload the Overview export");
+    expect(first.type === "text" && first.text).toContain(
+      "Upload the Overview export",
+    );
   });
 
   it("renders the latest pages snapshot with its period", async () => {
@@ -129,10 +131,9 @@ describe("get_bing_ai_citations", () => {
       toolExtra,
     );
 
-    expect(mocks.BingAiCitationService.getPagesSnapshotDetail).toHaveBeenCalledWith(
-      "project_1",
-      null,
-    );
+    expect(
+      mocks.BingAiCitationService.getPagesSnapshotDetail,
+    ).toHaveBeenCalledWith("project_1", null);
     expect(result.structuredContent).toMatchObject({
       ok: true,
       reportType: "pages",

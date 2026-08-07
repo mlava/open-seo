@@ -18,6 +18,7 @@ import {
 } from "./CitationMatrix";
 import { CitationProvidersCard } from "./CitationProvidersCard";
 import { CitationResponseModal } from "./CitationResponseModal";
+import { CitationExportMenu } from "./CitationExportMenu";
 import { PanelError, PanelLoading, StatTile } from "./citationParts";
 import {
   PromptRegistryPanel,
@@ -225,21 +226,28 @@ function ResultsSection({
             Select a cell to read the answer and the sources it cited.
           </p>
         </div>
-        {data.runs.length > 0 ? (
-          <select
-            className="select select-bordered select-sm min-w-56"
-            aria-label="Run"
-            value={data.selectedRunId ?? ""}
-            onChange={(event) => onSelectRun(event.target.value)}
-          >
-            {data.runs.map((run) => (
-              <option key={run.id} value={run.id}>
-                {new Date(run.createdAt).toLocaleString()} · {run.trigger} ·{" "}
-                {run.status}
-              </option>
-            ))}
-          </select>
-        ) : null}
+        <div className="flex items-center gap-2">
+          {data.runs.length > 0 ? (
+            <select
+              className="select select-bordered select-sm min-w-56"
+              aria-label="Run"
+              value={data.selectedRunId ?? ""}
+              onChange={(event) => onSelectRun(event.target.value)}
+            >
+              {data.runs.map((run) => (
+                <option key={run.id} value={run.id}>
+                  {new Date(run.createdAt).toLocaleString()} · {run.trigger} ·{" "}
+                  {run.status}
+                </option>
+              ))}
+            </select>
+          ) : null}
+          <CitationExportMenu
+            prompts={prompts}
+            providers={columns}
+            cells={data.cells}
+          />
+        </div>
       </div>
 
       {data.tags.length > 0 ? (
