@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNull, lte, or } from "drizzle-orm";
+import { and, desc, eq, isNull, lte, or } from "drizzle-orm";
 import { db } from "@/db";
 import {
   aiCitationTrackingCitations,
@@ -107,15 +107,26 @@ async function getOverview(projectId: string, runId?: string) {
         .where(eq(aiCitationTrackingResponses.runId, selectedRun.id))
     : [];
 
-  // Citations for exactly the selected run's responses — the previous build
-  // filtered on projectId alone and returned an unordered slab of every
-  // citation the project had ever collected.
-  const responseIds = responses.map((response) => response.id);
-  const citations = responseIds.length
+  // Citations for exactly the selected run's responses, via a join on run id
+  // rather than `inArray(responseIds)`. A 33-prompt x 4-provider run has 132
+  // responses, and binding one parameter per id blows D1's ~100-parameter cap
+  // so the whole page fails to load. The join binds exactly one.
+  const citations = selectedRun
     ? await db
-        .select()
+        .select({
+          responseId: aiCitationTrackingCitations.responseId,
+          domain: aiCitationTrackingCitations.domain,
+          isTrackedDomain: aiCitationTrackingCitations.isTrackedDomain,
+        })
         .from(aiCitationTrackingCitations)
-        .where(inArray(aiCitationTrackingCitations.responseId, responseIds))
+        .innerJoin(
+          aiCitationTrackingResponses,
+          eq(
+            aiCitationTrackingResponses.id,
+            aiCitationTrackingCitations.responseId,
+          ),
+        )
+        .where(eq(aiCitationTrackingResponses.runId, selectedRun.id))
         .orderBy(aiCitationTrackingCitations.citationOrder)
     : [];
 
