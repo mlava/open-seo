@@ -6,6 +6,10 @@ import {
 } from "@/server/mcp/tools/bing-tools";
 import { inspectBingUrlsTool } from "@/server/mcp/tools/bing-inspect-tools";
 import { getBingAiCitationsTool } from "@/server/mcp/tools/bing-ai-citation-tools";
+import {
+  getAiCitationResultsTool,
+  listAiCitationPromptsTool,
+} from "@/server/mcp/tools/ai-citation-tracking-tools";
 import { getVercelTrafficTool } from "@/server/mcp/tools/vercel-tools";
 import {
   getRapidapiSnapshotsTool,
@@ -52,6 +56,30 @@ import { whoamiTool } from "@/server/mcp/tools/whoami";
 // registered one explicit call at a time (not via a loop/helper) so each one's
 // input/output schema types stay concrete, which the SDK's registerTool
 // generics require to type the handler callback.
+// Split out purely to keep registerOpenSeoMcpTools under the max-lines-per-
+// function cap. Still one explicit registerTool call per tool, for the same
+// generic-inference reason described above.
+function registerAiCitationTrackingTools(server: McpServer) {
+  server.registerTool(
+    listAiCitationPromptsTool.name,
+    listAiCitationPromptsTool.config,
+    instrumentMcpToolHandler(
+      listAiCitationPromptsTool.name,
+      listAiCitationPromptsTool.config.outputSchema,
+      listAiCitationPromptsTool.handler,
+    ),
+  );
+  server.registerTool(
+    getAiCitationResultsTool.name,
+    getAiCitationResultsTool.config,
+    instrumentMcpToolHandler(
+      getAiCitationResultsTool.name,
+      getAiCitationResultsTool.config.outputSchema,
+      getAiCitationResultsTool.handler,
+    ),
+  );
+}
+
 export function registerOpenSeoMcpTools(server: McpServer) {
   server.registerTool(
     whoamiTool.name,
@@ -260,6 +288,7 @@ export function registerOpenSeoMcpTools(server: McpServer) {
       getBingAiCitationsTool.handler,
     ),
   );
+  registerAiCitationTrackingTools(server);
   server.registerTool(
     getVercelTrafficTool.name,
     getVercelTrafficTool.config,
