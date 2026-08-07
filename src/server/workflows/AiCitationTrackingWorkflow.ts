@@ -11,19 +11,20 @@ export interface AiCitationTrackingWorkflowParams {
 }
 
 /**
- * Prompts handled before the instance hibernates to reset its subrequest
- * budget. One prompt spends roughly a dozen subrequests (provider calls, any
- * Gemini redirect resolutions, and the D1 reads and writes around them), so
- * this stays well inside the 50-per-invocation Free-plan cap.
- */
-const PROMPTS_PER_INVOCATION = 3;
-
-/**
  * One durable step per tracked prompt rather than one step for the whole batch.
  * A batch can be 50 prompts across 5 providers; as a single step it would blow
  * any sane step timeout, and a retry would re-ask every provider from the top.
  * Per-prompt steps keep each unit small, and the engine's memoised results mean
  * a Worker restart resumes at the first prompt that had not finished.
+ *
+ * SUBREQUESTS ARE BUDGETED PER INSTANCE, NOT PER STEP. Every provider call,
+ * redirect hop and D1 query in the whole run shares one allowance, and one
+ * prompt costs roughly a dozen. `step.sleep` does NOT refill it — a sleeping
+ * instance only stops counting against concurrency — so an earlier attempt to
+ * yield every few prompts changed nothing: a 33-prompt sweep still died after
+ * exactly six, twice. This needs headroom in the budget itself (Workers Paid
+ * defaults to 10,000, against 50 on Free), not a smarter loop. If a run ever
+ * outgrows that, raise `limits.subrequests` in wrangler.jsonc.
  */
 export class AiCitationTrackingWorkflow extends WorkflowEntrypoint<
   Env,
@@ -42,16 +43,7 @@ export class AiCitationTrackingWorkflow extends WorkflowEntrypoint<
       () => AiCitationTrackingService.planRun(runId),
     );
 
-    for (const [index, promptId] of plan.promptIds.entries()) {
-      // A Worker invocation has a hard subrequest cap (50 on Free), and every
-      // provider call, redirect resolution and D1 query spends one. Running 33
-      // prompt steps back to back exhausted it after six prompts and the
-      // remaining 108 provider calls all failed with "Too many subrequests".
-      // Sleeping hibernates the instance, so the engine resumes the next batch
-      // in a fresh invocation with a fresh budget.
-      if (index > 0 && index % PROMPTS_PER_INVOCATION === 0) {
-        await step.sleep(`yield-${index}`, "1 second");
-      }
+    for (const promptId of plan.promptIds) {
       try {
         await pgStep(
           step,
