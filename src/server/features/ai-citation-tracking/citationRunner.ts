@@ -1,5 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
+import { runBatch } from "@/db/runBatch";
 import {
   aiCitationTrackingCitations,
   aiCitationTrackingConfigs,
@@ -9,33 +10,19 @@ import {
 } from "@/db/schema";
 import {
   parseCitationProviders,
-  sortCitationProviders,
   type CitationProvider,
 } from "@/shared/ai-citation-providers";
 import { deriveBrandTerms, textMentionsBrand } from "@/shared/brand-mentions";
-import { aliasDomain, parseAliases, safeDomain } from "./citationHelpers";
+import {
+  aliasDomain,
+  buildCitationRows,
+  parseAliases,
+  providersForPrompt,
+} from "./citationHelpers";
 import { runCitationPrompt } from "./citationClient";
 
 /** Providers for one prompt run concurrently; prompts are one Workflow step each. */
 const PROVIDER_CONCURRENCY = 5;
-
-/**
- * Which providers a prompt runs against: its own override when set, otherwise
- * the project default. Either way it is bounded by the providers this instance
- * holds a key for, so a revoked key degrades the run instead of failing it.
- */
-export function providersForPrompt(
-  prompt: { providers: string | null },
-  projectDefault: CitationProvider[],
-  configured: readonly CitationProvider[],
-): CitationProvider[] {
-  const chosen = prompt.providers
-    ? parseCitationProviders(prompt.providers)
-    : projectDefault;
-  return sortCitationProviders(
-    chosen.filter((provider) => configured.includes(provider)),
-  );
-}
 
 async function loadRunPlan(
   runId: string,
@@ -147,7 +134,10 @@ export async function runPromptTask(
   );
 
   for (let index = 0; index < pending.length; index += PROVIDER_CONCURRENCY) {
-    await Promise.all(
+    // allSettled, not all: `all` rejects on the first failure while its
+    // siblings are still in flight, and the step retry then races those
+    // in-flight writes into duplicate-key errors.
+    await Promise.allSettled(
       pending.slice(index, index + PROVIDER_CONCURRENCY).map((provider) =>
         storeProviderResponse({
           runId,
@@ -172,52 +162,57 @@ async function storeProviderResponse(input: {
   trackedDomains: Set<string>;
 }) {
   const responseId = crypto.randomUUID();
+  const identity = {
+    id: responseId,
+    runId: input.runId,
+    promptId: input.prompt.id,
+    projectId: input.projectId,
+    provider: input.provider,
+  };
   try {
     const result = await runCitationPrompt(input.provider, input.prompt.prompt);
-    await db.insert(aiCitationTrackingResponses).values({
-      id: responseId,
-      runId: input.runId,
-      promptId: input.prompt.id,
+    const rows = buildCitationRows(result.sources, {
+      responseId,
       projectId: input.projectId,
-      provider: input.provider,
-      model: result.model,
-      answerText: result.answerText,
-      brandMentioned: textMentionsBrand(result.answerText, input.brandTerms),
+      trackedDomains: input.trackedDomains,
     });
-    const rows = result.sources.flatMap((source, citationOrder) => {
-      const domain = safeDomain(source.url);
-      return domain
-        ? [
-            {
-              id: crypto.randomUUID(),
-              responseId,
-              projectId: input.projectId,
-              url: source.url,
-              domain,
-              title: source.title,
-              citationOrder,
-              isTrackedDomain: input.trackedDomains.has(domain),
-            },
-          ]
-        : [];
-    });
-    if (rows.length) await db.insert(aiCitationTrackingCitations).values(rows);
+
+    // One statement per row, run as a single ordered atomic batch. A multi-row
+    // insert would bind 8 parameters per citation and D1 caps a statement at
+    // ~100, so any answer citing more than a dozen sources failed outright.
+    // Atomicity also means a citation failure can't leave a stored answer whose
+    // sources were silently dropped, and leaves nothing behind for the retry to
+    // collide with.
+    await runBatch((tx) => [
+      tx.insert(aiCitationTrackingResponses).values({
+        ...identity,
+        model: result.model,
+        answerText: result.answerText,
+        brandMentioned: textMentionsBrand(result.answerText, input.brandTerms),
+      }),
+      ...rows.map((row) => tx.insert(aiCitationTrackingCitations).values(row)),
+    ]);
   } catch (error) {
     // Log upstream detail server-side; the stored message is what the UI shows.
     console.error(
       `[citation-tracking] ${input.provider} failed for prompt ${input.prompt.id}:`,
       error,
     );
-    await db.insert(aiCitationTrackingResponses).values({
-      id: responseId,
-      runId: input.runId,
-      promptId: input.prompt.id,
-      projectId: input.projectId,
-      provider: input.provider,
-      model: "unknown",
-      errorMessage:
-        error instanceof Error ? error.message : "Provider request failed",
-    });
+    try {
+      await db.insert(aiCitationTrackingResponses).values({
+        ...identity,
+        model: "unknown",
+        errorMessage:
+          error instanceof Error ? error.message : "Provider request failed",
+      });
+    } catch (writeError) {
+      // Recording the failure must not itself fail the prompt: this row is
+      // only how the matrix renders an error cell.
+      console.error(
+        `[citation-tracking] could not record ${input.provider} failure for prompt ${input.prompt.id}:`,
+        writeError,
+      );
+    }
   }
 }
 
