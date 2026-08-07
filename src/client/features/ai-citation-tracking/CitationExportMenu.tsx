@@ -23,7 +23,9 @@ export function CitationExportMenu({
   if (prompts.length === 0 || providers.length === 0) return null;
   return (
     <TableExportMenu
-      buttonClassName="btn btn-ghost btn-sm gap-1"
+      // shrink-0: the run picker beside this is w-full, and without it the
+      // flex row would compress the button instead of the select.
+      buttonClassName="btn btn-ghost btn-sm shrink-0 gap-1"
       actions={[
         {
           label: "Export to Sheets",
