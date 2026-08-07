@@ -6,13 +6,34 @@
  * Distinct from Prompt Explorer's `PromptExplorerModel` on purpose: that enum
  * is DataForSEO's model catalogue, this one is "providers we hold a key for".
  */
+/**
+ * Two kinds of surface, one catalogue. The first five are assistants we call
+ * with our own key. The last three are AI answers rendered on a search results
+ * page, which have no first-party API at all — Bing's Search APIs are retired
+ * and Google publishes none — so they are read through SerpApi. Listed after
+ * the assistants because `sortCitationProviders` fixes column order from here.
+ */
 export const CITATION_PROVIDERS = [
   "openai",
   "anthropic",
   "google",
   "perplexity",
   "xai",
+  "google_ai_overview",
+  "google_ai_mode",
+  "bing_copilot",
 ] as const;
+
+/** Engines reached via SerpApi rather than the provider's own API. */
+export const SERPAPI_PROVIDERS = [
+  "google_ai_overview",
+  "google_ai_mode",
+  "bing_copilot",
+] as const satisfies readonly CitationProvider[];
+
+export function isSerpApiProvider(provider: CitationProvider): boolean {
+  return (SERPAPI_PROVIDERS as readonly string[]).includes(provider);
+}
 
 export type CitationProvider = (typeof CITATION_PROVIDERS)[number];
 
@@ -22,6 +43,9 @@ export const CITATION_PROVIDER_LABELS: Record<CitationProvider, string> = {
   google: "Gemini",
   perplexity: "Perplexity",
   xai: "Grok",
+  google_ai_overview: "Google AI Overview",
+  google_ai_mode: "Google AI Mode",
+  bing_copilot: "Bing Copilot",
 };
 
 /**
@@ -35,6 +59,11 @@ export const CITATION_PROVIDER_DOT_CLASS: Record<CitationProvider, string> = {
   google: "bg-sky-500",
   perplexity: "bg-violet-500",
   xai: "bg-slate-500",
+  // Search surfaces take hues not already spoken for by an assistant — sky is
+  // Gemini's, so the two Google surfaces sit either side of it rather than on it.
+  google_ai_overview: "bg-blue-600",
+  google_ai_mode: "bg-indigo-500",
+  bing_copilot: "bg-teal-500",
 };
 
 export function isCitationProvider(value: unknown): value is CitationProvider {

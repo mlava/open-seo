@@ -40,7 +40,7 @@ const PROMPT_COLUMNS: McpTableColumn<PromptWithTags>[] = [
 
 const RESULT_COLUMNS: McpTableColumn<CitationResultRow>[] = [
   { header: "prompt", value: (row) => row.promptLabel },
-  { header: "assistant", value: (row) => providerLabel(row.provider) },
+  { header: "surface", value: (row) => providerLabel(row.provider) },
   {
     header: "outcome",
     value: (row) =>
@@ -75,7 +75,7 @@ export const listAiCitationPromptsTool = {
   config: {
     title: "List AI citation tracking prompts",
     description:
-      "The prompts this project tracks against AI assistants (ChatGPT, Claude, Gemini, Perplexity, Grok), each with its tags and any per-prompt provider override. Also returns every tag defined on the project, so you can discover tags before filtering by one. Use this to find a prompt id or tag to pass to get_ai_citation_results. Read-only; uses no credits.",
+      "The prompts this project tracks against AI surfaces — the assistants ChatGPT, Claude, Gemini, Perplexity and Grok, plus the AI answers shown on a search results page (Google AI Overview, Google AI Mode, Bing Copilot) — each with its tags and any per-prompt surface override. Also returns every tag defined on the project, so you can discover tags before filtering by one. Use this to find a prompt id or tag to pass to get_ai_citation_results. Read-only; uses no credits.",
     inputSchema: promptsInputSchema,
     outputSchema: {
       ok: z.boolean(),
@@ -159,7 +159,7 @@ export const getAiCitationResultsTool = {
   config: {
     title: "Get AI citation tracking results",
     description:
-      "How each AI assistant answered this project's tracked prompts in a run, and whether it cited the project's own domains. One row per prompt and assistant, with counts of tracked-domain citations versus all citations. Filter to one prompt with promptId (which also returns each answer's cited source URLs) or to a group of prompts with tag. Defaults to the latest completed run. Read-only; uses no credits — the run itself is what spends API budget.",
+      "How each AI surface answered this project's tracked prompts in a run, and whether it cited the project's own domains. Surfaces are the assistants (ChatGPT, Claude, Gemini, Perplexity, Grok) and the AI answers on a search results page (Google AI Overview, Google AI Mode, Bing Copilot). One row per prompt and surface, with counts of tracked-domain citations versus all citations. Filter to one prompt with promptId (which also returns each answer's cited source URLs) or to a group of prompts with tag. Defaults to the latest completed run. Read-only; uses no credits — the run itself is what spends API budget.",
     inputSchema: resultsInputSchema,
     outputSchema: {
       ok: z.boolean(),
@@ -215,7 +215,7 @@ export const getAiCitationResultsTool = {
       });
     }
 
-    // Source URLs only for a single prompt: a whole run is up to 250 answers
+    // Source URLs only for a single prompt: a whole run is up to 400 answers
     // and their citations would swamp the response.
     const citations = args.promptId
       ? await getResponseCitations(

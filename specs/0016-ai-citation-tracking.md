@@ -27,7 +27,7 @@ registry**, a **weekly scheduled run**, and a **prompt × provider matrix** of
 results that drills into the full answer and its cited sources.
 
 Each assistant is called **directly, with the operator's own API key and that
-provider's native web search**. Five providers, each optional — the tab enables
+provider's native web search**. Five assistants, each optional — the tab enables
 whichever keys exist:
 
 | Provider   | Secret                         | Default model (override)              |
@@ -43,16 +43,50 @@ release cycle — `gemini-2.5-pro` was closed to new API keys mid-build, and a
 wrong default should be a config change, not a deploy.
 
 Prompt Explorer and Brand Lookup stay on DataForSEO. They answer a different
-question (point at anything, right now) and their Google AI Overview mentions
-have no provider-API equivalent.
+question — point at anything, right now — and nothing here replaces them.
 
-## Why not an aggregator
+## Search surfaces, via SerpApi
 
-We already hold `OPENROUTER_API_KEY` for the chat agents, and routing through
-it would have been less code. It is the wrong tool here: OpenRouter's web
-search is its own Exa-based plugin, so the citations would measure OpenRouter,
-not Perplexity or Gemini. The same objection retires DataForSEO for this
-feature. Measuring an assistant means calling that assistant's own search.
+The five above are **assistants**. An AI answer rendered on a search results
+page is a different surface, reaching different people, and three of those are
+tracked too:
+
+| Surface            | SerpApi engine                  |
+| ------------------ | ------------------------------- |
+| Google AI Overview | `google` → `google_ai_overview` |
+| Google AI Mode     | `google_ai_mode`                |
+| Bing Copilot       | `bing_copilot`                  |
+
+None has a first-party API. Bing's Search APIs are retired (the docs now serve
+from `/previous-versions/` flagged `is_retired`), there is no public Copilot
+answers API, Bing Webmaster's AI performance report is CSV-only (specs/0015),
+and Google publishes no AI Overview API. Scraping via SerpApi is the only route.
+
+All three share one `SERPAPI_KEY`, so the key enables the set and the per-project
+and per-prompt provider toggles decide which actually run.
+
+**Cost is the real constraint, and it is not ours to meter.** SerpApi bills per
+search: prompts × engines per run, plus one extra whenever an AI Overview
+returns a `page_token` instead of an inline answer. Thirty-three prompts across
+all three engines is ~99–132 searches per run, so a weekly schedule is
+~430–570/month — past the 250/month free tier, and a single run exceeds its
+50/hour throughput. Budget the plan against prompts × engines × runs before
+enabling these.
+
+## Why an aggregator here but not for the assistants
+
+We hold `OPENROUTER_API_KEY` for the chat agents, and routing the assistants
+through it would have been less code. It is the wrong tool for them: OpenRouter's
+web search is its own Exa-based plugin, so the citations would measure
+OpenRouter, not Perplexity or Gemini. The same objection retires DataForSEO.
+Measuring an assistant means calling that assistant's own search.
+
+That reasoning does **not** carry over to the search surfaces, and it is worth
+being explicit about why, because the two look alike. There the objection was
+that a first-party answer existed and the aggregator would substitute its own.
+For AI Overview, AI Mode and Copilot there is no first-party answer to prefer,
+and what SerpApi returns is the answer a searcher actually sees. Preferring a
+reseller is the only option, not a compromise.
 
 ## Data model
 
@@ -78,7 +112,7 @@ Six tables, all `project_id`-scoped and cascade-deleted with the project.
   `citation_order`, `is_tracked_domain`.
 
 Raw provider payloads are **not** stored. They were in the first cut and were
-never read; at five providers the volume is five times worse for no benefit.
+never read; across eight surfaces the volume is eight times worse for no benefit.
 `answer_text` plus structured citations is the evidence.
 
 `brand_mentioned` is computed from the answer prose using the same
@@ -92,7 +126,7 @@ matched — assistants write prose, not hostnames.
 A run is a Cloudflare Workflow: `planRun` → one step per prompt → `finalizeRun`.
 
 - **One step per prompt**, not one per batch. A batch can be 50 prompts across
-  5 providers; as a single step it would exceed any sane step timeout, and a
+  8 surfaces; as a single step it would exceed any sane step timeout, and a
   retry would re-ask every provider from the top.
 - **Providers within a prompt run concurrently** (`PROVIDER_CONCURRENCY = 5`)
   via `allSettled`. `all` rejects on the first failure while its siblings are
@@ -130,7 +164,7 @@ twice:
   132-response run bound 132 parameters, so the whole page failed to load. Now
   a join on `run_id`, which binds exactly one regardless of run size.
 
-Never bind a parameter per row here. A full run is 250 responses.
+Never bind a parameter per row here. A full run is 400 responses (50 prompts x 8 surfaces).
 
 **Subrequests are budgeted per Workflow instance, not per step.** Free allows
 50 and that is also the hard maximum; Paid defaults to 10,000. Every `fetch`,
@@ -162,6 +196,18 @@ that a value above 50 is rejected outright on Free.
 - **Calls are independent.** Every request sends a bare prompt — no message
   history, no system prompt, no `previousResponseId` — so answers cannot
   contaminate each other across prompts, providers or runs.
+- **Google AI Overview** usually arrives from the `google` engine as a
+  `page_token` rather than an inline answer, and that token **expires about a
+  minute after the search**. The follow-up therefore runs immediately in the
+  same call, never deferred to another step. A query with no AI Overview at all
+  is recorded as an empty answer rather than an error: Google declining to show
+  one is itself the finding.
+- **All three SerpApi engines share one response shape** — `text_blocks[]` and
+  `references[]` — differing only in that the `google` engine nests them under
+  `ai_overview`. Blocks nest (a list carries `list[]`, an expandable carries its
+  own `text_blocks[]`) and only leaves hold `snippet`, so text extraction
+  recurses. Timeouts **reject** rather than resolving, so they must reach the
+  caller's catch to be recorded as a failed cell rather than killing the run.
 
 **AI SDK version coupling:** `ai@6` requires `@ai-sdk/*@3`. The `@4` provider
 line targets `ai@7` and pulls in a second `@ai-sdk/provider`, which makes every
@@ -187,7 +233,7 @@ and fails only at build.
   tag in use for discovery. `get_ai_citation_results` returns one row per
   prompt × assistant for a run, filterable by `promptId` or `tag`; `promptId`
   also returns each answer's cited URLs, which stay opt-in because a whole run
-  is up to 250 answers.
+  is up to 400 answers.
 
 Nav placement is **My Site**, not Research: this tracks the project's own brand
 over time rather than pointing at anything on demand.

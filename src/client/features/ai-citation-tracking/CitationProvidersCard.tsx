@@ -7,9 +7,12 @@ import {
 import { ProviderBadge } from "./citationParts";
 
 /**
- * The tracker calls each assistant's own API with the operator's key, so
- * "connected" means the Worker secret is present. Mirrors the connection cards
+ * "Connected" means the Worker secret is present. Mirrors the connection cards
  * on the Stripe, PageSpeed and Bing tabs.
+ *
+ * The three search surfaces deliberately share one secret: SerpApi is a single
+ * account billed per search, so one key enables all three at once. Which of
+ * them actually run is the provider toggle in tracker settings, not the key.
  */
 const SECRET_NAMES: Record<CitationProvider, string> = {
   openai: "OPENAI_API_KEY",
@@ -17,7 +20,15 @@ const SECRET_NAMES: Record<CitationProvider, string> = {
   google: "GOOGLE_GENERATIVE_AI_API_KEY",
   perplexity: "PERPLEXITY_API_KEY",
   xai: "XAI_API_KEY",
+  google_ai_overview: "SERPAPI_KEY",
+  google_ai_mode: "SERPAPI_KEY",
+  bing_copilot: "SERPAPI_KEY",
 };
+
+/** Distinct secrets, in catalogue order — SERPAPI_KEY covers three providers. */
+const DISTINCT_SECRETS = [
+  ...new Set(CITATION_PROVIDERS.map((provider) => SECRET_NAMES[provider])),
+];
 
 export function CitationProvidersCard({
   configured,
@@ -54,10 +65,10 @@ export function CitationProvidersCard({
             <div className="alert alert-warning mt-3">
               <span className="text-sm">
                 No provider keys found. Set at least one of{" "}
-                {CITATION_PROVIDERS.map((provider, index) => (
-                  <span key={provider}>
+                {DISTINCT_SECRETS.map((secret, index) => (
+                  <span key={secret}>
                     {index > 0 ? ", " : ""}
-                    <code>{SECRET_NAMES[provider]}</code>
+                    <code>{secret}</code>
                   </span>
                 ))}{" "}
                 to start collecting.

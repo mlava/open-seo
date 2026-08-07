@@ -71,6 +71,25 @@ const PROVIDER_ENV: Record<
     model: "AI_CITATION_MODEL_XAI",
     defaultModel: "grok-4",
   },
+  // The three search surfaces share one SerpApi key, so setting it enables all
+  // three at once; which of them actually run is the per-project and per-prompt
+  // provider toggle, not the key. "Model" here is the engine SerpApi is asked
+  // for, and is recorded as such on the response.
+  google_ai_overview: {
+    apiKey: "SERPAPI_KEY",
+    model: "AI_CITATION_MODEL_GOOGLE_AI_OVERVIEW",
+    defaultModel: "google_ai_overview",
+  },
+  google_ai_mode: {
+    apiKey: "SERPAPI_KEY",
+    model: "AI_CITATION_MODEL_GOOGLE_AI_MODE",
+    defaultModel: "google_ai_mode",
+  },
+  bing_copilot: {
+    apiKey: "SERPAPI_KEY",
+    model: "AI_CITATION_MODEL_BING_COPILOT",
+    defaultModel: "bing_copilot",
+  },
 };
 
 export async function hasCitationProviderKey(
@@ -184,7 +203,39 @@ async function callProvider(
         prompt,
       });
     }
+    case "google_ai_overview": {
+      const { fetchAiOverview } = await import("./serpapiClient");
+      return asProviderResult(await fetchAiOverview(apiKey, prompt), modelId);
+    }
+    case "google_ai_mode":
+    case "bing_copilot": {
+      const { fetchSerpApiEngine } = await import("./serpapiClient");
+      return asProviderResult(
+        await fetchSerpApiEngine(apiKey, provider, prompt),
+        modelId,
+      );
+    }
   }
+}
+
+/**
+ * SerpApi returns a scraped answer, not a model completion: there are no token
+ * counts to report, and the "model" is the engine that produced it.
+ */
+function asProviderResult(
+  answer: { answerText: string; sources: CitationSource[] },
+  modelId: string,
+): ProviderCallResult {
+  return {
+    text: answer.answerText,
+    sources: answer.sources.map((source) => ({
+      sourceType: "url",
+      url: source.url,
+      title: source.title ?? undefined,
+    })),
+    usage: {},
+    response: { modelId },
+  };
 }
 
 /**
