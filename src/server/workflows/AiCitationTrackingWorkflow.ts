@@ -35,14 +35,23 @@ export class AiCitationTrackingWorkflow extends WorkflowEntrypoint<
     );
 
     for (const promptId of plan.promptIds) {
-      // A prompt that keeps failing records per-provider errors and moves on,
-      // so one bad prompt cannot strand the rest of the batch.
-      await pgStep(
-        step,
-        `prompt-${promptId}`,
-        { retries: { limit: 1, delay: "20 seconds" }, timeout: "5 minutes" },
-        () => AiCitationTrackingService.runPromptTask(runId, promptId),
-      );
+      try {
+        await pgStep(
+          step,
+          `prompt-${promptId}`,
+          { retries: { limit: 1, delay: "20 seconds" }, timeout: "5 minutes" },
+          () => AiCitationTrackingService.runPromptTask(runId, promptId),
+        );
+      } catch (error) {
+        // Per-provider failures are already recorded as rows; this catches a
+        // step-level failure (timeout, or a write that failed twice). Swallow
+        // it so one bad prompt cannot strand the other 32 and skip finalize —
+        // a run of 33 prompts died here after two when this rethrew.
+        console.error(
+          `[citation-tracking] prompt ${promptId} step failed, continuing:`,
+          error,
+        );
+      }
     }
 
     return pgStep(
