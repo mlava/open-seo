@@ -130,8 +130,20 @@ over _answers that cited anything_, and says how many cited nothing.
 
 **A citation you cannot attribute is not a miss.** See `attributedDomain` below.
 
-When adding a rollup, ask what its denominator is. Anything averaged over all
-answers rather than over grounded ones will drift back into this.
+**A brand written as prose is still a mention.** Aliases are entered as domains
+(`scholar-sidekick.com`) and `mentionRegex` matched them literally, so it only
+ever fired when an answer printed the domain — which is when it was already
+citing. `brand_mentioned` was therefore redundant with the citation count and
+never once fired on an answer that named the brand without linking to it. That
+is precisely the signal that would rescue an assistant which discusses you but
+does not cite: on one run it fired on five rows, every one of which already had
+a tracked citation, and zero times on ChatGPT. Multi-token brands now match
+across any separator or none, so "Scholar Sidekick", "scholar-sidekick" and
+"ScholarSidekick" all count.
+
+When adding a rollup, ask what its denominator is, and when adding a signal, ask
+whether it can ever fire independently of the ones you already have. All three
+of these shipped looking correct.
 
 `brand_mentioned` is computed from the answer prose using the same
 `mentionRegex` Prompt Explorer uses (extracted to `shared/brand-mentions.ts`),
