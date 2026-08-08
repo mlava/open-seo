@@ -45,7 +45,11 @@ export function cellState(cell: MatrixCell | undefined): CellState {
   if (cell.errorMessage) return "error";
   if (cell.trackedCitationCount > 0) return "cited";
   if (cell.brandMentioned) return "mentioned";
-  if (!cell.hasAnswer) return "absent";
+  // Citations, not text, are the evidence a surface produced something.
+  // Bing Copilot has returned 8 references with an answer body we could not
+  // parse; treating that as "no answer shown" would claim the surface never
+  // appeared when it plainly did.
+  if (!cell.hasAnswer && cell.citationCount === 0) return "absent";
   if (cell.citationCount === 0) return "ungrounded";
   return "answered";
 }
