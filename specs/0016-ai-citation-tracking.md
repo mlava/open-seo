@@ -115,6 +115,24 @@ Raw provider payloads are **not** stored. They were in the first cut and were
 never read; across eight surfaces the volume is eight times worse for no benefit.
 `answer_text` plus structured citations is the evidence.
 
+## What counts as evidence
+
+Two ways this feature can report a confident number that measures nothing. Both
+were shipped and both had to be corrected against real scan data.
+
+**An answer that cited nothing is not absence.** On one run, 28 of 32 ChatGPT
+answers and 23 of 32 Claude answers returned no citations of _any_ domain — the
+assistant answered from its own weights without searching. Folding those into
+"no mention" turned silence into a measured zero, and "0 of 32 cited you" read
+as a ranking result when it was an artifact. They are now a distinct
+`ungrounded` state, excluded from the denominator: the summary reports cited-you
+over _answers that cited anything_, and says how many cited nothing.
+
+**A citation you cannot attribute is not a miss.** See `attributedDomain` below.
+
+When adding a rollup, ask what its denominator is. Anything averaged over all
+answers rather than over grounded ones will drift back into this.
+
 `brand_mentioned` is computed from the answer prose using the same
 `mentionRegex` Prompt Explorer uses (extracted to `shared/brand-mentions.ts`),
 so the two AI tabs cannot drift on what "mentioned" means. Aliases are entered
@@ -185,8 +203,13 @@ that a value above 50 is rejected outright on Free.
 - **Gemini** returns grounding links as `vertexaisearch.cloud.google.com`
   redirects, not destinations, so citations would never match a tracked domain.
   Resolved via `redirect: "manual"`, capped at `MAX_REDIRECTS_RESOLVED = 10`
-  because each resolution is itself a subrequest. On failure the Gemini title
-  carries the domain.
+  because each resolution is itself a subrequest. Past that cap — and whenever
+  resolution fails — the link still points at Google's redirector, so
+  `attributedDomain` falls back to the reference title, which Gemini sets to the
+  site domain. Without that fallback every unresolved redirect was attributed to
+  `vertexaisearch.cloud.google.com` and scored `isTrackedDomain: false`,
+  undercounting Gemini against rows whose title plainly read as a tracked
+  domain. The stored URL stays the redirect, since that is what Gemini gave us.
 - **xAI** reports hits in the `web_search` tool output rather than as
   normalised `sources`, so extraction falls back to that shape before
   concluding a provider returned nothing.

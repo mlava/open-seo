@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { buildCitationRows, providersForPrompt } from "./citationHelpers";
+import {
+  attributedDomain,
+  buildCitationRows,
+  isGroundingRedirect,
+  providersForPrompt,
+} from "./citationHelpers";
 
 const context = () => ({
   responseId: "response-1",
@@ -57,6 +62,66 @@ describe("buildCitationRows", () => {
 
   it("returns nothing for an answer that cited no sources", () => {
     expect(buildCitationRows([], context())).toEqual([]);
+  });
+});
+
+describe("isGroundingRedirect", () => {
+  it("recognises Gemini grounding redirects and ignores ordinary urls", () => {
+    expect(
+      isGroundingRedirect(
+        "https://vertexaisearch.cloud.google.com/grounding-api-redirect/abc",
+      ),
+    ).toBe(true);
+    expect(isGroundingRedirect("https://example.com/page")).toBe(false);
+    expect(isGroundingRedirect("not a url")).toBe(false);
+  });
+});
+
+describe("attributedDomain", () => {
+  const redirect =
+    "https://vertexaisearch.cloud.google.com/grounding-api-redirect/abc";
+
+  it("uses the url host for an ordinary citation", () => {
+    expect(
+      attributedDomain({ url: "https://www.example.com/x", title: "Example" }),
+    ).toBe("example.com");
+  });
+
+  it("attributes an unresolved grounding redirect to its title domain", () => {
+    // Only the first few redirects get resolved (each costs a subrequest), so
+    // the rest arrive still pointing at Google's redirector. Attributing them
+    // to that host scored real citations as isTrackedDomain: false.
+    expect(
+      attributedDomain({ url: redirect, title: "scholar-sidekick.com" }),
+    ).toBe("scholar-sidekick.com");
+  });
+
+  it("drops an unresolved redirect with no usable title", () => {
+    expect(attributedDomain({ url: redirect, title: null })).toBeNull();
+  });
+});
+
+describe("buildCitationRows", () => {
+  it("flags a tracked domain reached only via an unresolved redirect", () => {
+    const rows = buildCitationRows(
+      [
+        {
+          url: "https://vertexaisearch.cloud.google.com/grounding-api-redirect/x",
+          title: "scholar-sidekick.com",
+        },
+      ],
+      {
+        responseId: "r1",
+        projectId: "p1",
+        trackedDomains: new Set(["scholar-sidekick.com"]),
+      },
+    );
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.domain).toBe("scholar-sidekick.com");
+    expect(rows[0]?.isTrackedDomain).toBe(true);
+    // The stored link stays the redirect, which is what Gemini actually gave us.
+    expect(rows[0]?.url).toContain("vertexaisearch");
   });
 });
 

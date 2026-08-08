@@ -31,15 +31,18 @@ describe("buildCitationExportRows", () => {
     expect(rows.map((row) => row[2])).toEqual(["ChatGPT", "Claude"]);
   });
 
-  it("distinguishes all four outcomes, including pairs that never ran", () => {
+  it("distinguishes every outcome, including pairs that never ran", () => {
     const rows = buildCitationExportRows(
-      [prompts[0], { ...prompts[0], id: "p2" }],
+      [prompts[0], { ...prompts[0], id: "p2" }, { ...prompts[0], id: "p3" }],
       ["openai", "anthropic"],
       [
         cell({ trackedCitationCount: 2, citationCount: 5 }),
         cell({ provider: "anthropic", brandMentioned: true, citationCount: 3 }),
         cell({ promptId: "p2", errorMessage: "rate limited" }),
-        // p2 x anthropic deliberately absent.
+        cell({ promptId: "p2", provider: "anthropic", citationCount: 4 }),
+        // Answered, but grounded on nothing — not the same as "no mention".
+        cell({ promptId: "p3", citationCount: 0 }),
+        // p3 x anthropic deliberately absent.
       ],
     );
 
@@ -47,6 +50,8 @@ describe("buildCitationExportRows", () => {
       "cited you",
       "mentioned only",
       "error",
+      "no mention",
+      "cited nothing",
       "not run",
     ]);
   });
