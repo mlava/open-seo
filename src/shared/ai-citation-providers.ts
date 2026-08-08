@@ -31,7 +31,8 @@ export const SERPAPI_PROVIDERS = [
   "bing_copilot",
 ] as const satisfies readonly CitationProvider[];
 
-export function isSerpApiProvider(provider: CitationProvider): boolean {
+/** Takes a bare string: stored rows carry the slug untyped. */
+export function isSerpApiProvider(provider: string): boolean {
   return (SERPAPI_PROVIDERS as readonly string[]).includes(provider);
 }
 

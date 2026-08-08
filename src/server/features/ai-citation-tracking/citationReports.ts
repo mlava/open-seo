@@ -126,6 +126,7 @@ export type CitationResultRow = {
   model: string;
   brandMentioned: boolean;
   errorMessage: string | null;
+  hasAnswer: boolean;
   citationCount: number;
   trackedCitationCount: number;
 };
@@ -169,6 +170,9 @@ export async function getResults(
       model: aiCitationTrackingResponses.model,
       brandMentioned: aiCitationTrackingResponses.brandMentioned,
       errorMessage: aiCitationTrackingResponses.errorMessage,
+      // Flag, not the text: an empty answer means the surface produced nothing,
+      // which is a different finding from answering without citing.
+      hasAnswer: sql<number>`case when coalesce(${aiCitationTrackingResponses.answerText}, '') = '' then 0 else 1 end`,
       citationCount: sql<number>`count(${aiCitationTrackingCitations.id})`,
       trackedCitationCount: sql<number>`sum(case when ${aiCitationTrackingCitations.isTrackedDomain} then 1 else 0 end)`,
     })
@@ -194,6 +198,7 @@ export async function getResults(
     // callers can treat them as numbers.
     rows: rows.map((row) => ({
       ...row,
+      hasAnswer: Number(row.hasAnswer) === 1,
       citationCount: Number(row.citationCount ?? 0),
       trackedCitationCount: Number(row.trackedCitationCount ?? 0),
     })),

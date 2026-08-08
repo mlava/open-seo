@@ -171,11 +171,15 @@ function SummaryTiles({
   // Only answers that cited something can say anything about visibility, so
   // that is the denominator. Counting "cited you" against every answer — many
   // of which cited no domain at all — reads as absence when it is really
-  // silence. See the `ungrounded` state in CitationMatrix.
-  const answered = data.cells.filter((cell) => !cell.errorMessage);
+  // silence. Rows where the surface produced no answer are excluded entirely:
+  // a query Google served no AI Overview for is not a place you failed to
+  // appear. See the `ungrounded` and `absent` states in CitationMatrix.
+  const live = data.cells.filter((cell) => !cell.errorMessage);
+  const answered = live.filter((cell) => cell.hasAnswer);
   const grounded = answered.filter((cell) => cell.citationCount > 0);
   const citedYou = grounded.filter((cell) => cell.trackedCitationCount > 0);
   const ungrounded = answered.length - grounded.length;
+  const absent = live.length - answered.length;
 
   return (
     <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -194,11 +198,13 @@ function SummaryTiles({
         value={
           grounded.length === 0 ? "—" : `${citedYou.length}/${grounded.length}`
         }
-        hint={
-          ungrounded > 0
-            ? `of answers that cited anything · ${ungrounded} cited nothing`
-            : "of answers that cited anything"
-        }
+        hint={[
+          "of answers that cited anything",
+          ungrounded > 0 ? `${ungrounded} cited nothing` : null,
+          absent > 0 ? `${absent} no answer shown` : null,
+        ]
+          .filter(Boolean)
+          .join(" · ")}
       />
       <StatTile label="Completed runs" value={String(completed)} />
     </section>

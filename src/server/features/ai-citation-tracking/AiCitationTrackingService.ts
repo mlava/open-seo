@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull, lte, or } from "drizzle-orm";
+import { and, desc, eq, isNull, lte, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   aiCitationTrackingCitations,
@@ -102,6 +102,11 @@ async function getOverview(projectId: string, runId?: string) {
           model: aiCitationTrackingResponses.model,
           brandMentioned: aiCitationTrackingResponses.brandMentioned,
           errorMessage: aiCitationTrackingResponses.errorMessage,
+          // Whether the surface produced an answer at all, as a flag rather
+          // than the text, which is far too large for the page payload. An
+          // empty answer means something different from an answer that cited
+          // nothing — see the `absent` state in CitationMatrix.
+          hasAnswer: sql<number>`case when coalesce(${aiCitationTrackingResponses.answerText}, '') = '' then 0 else 1 end`,
         })
         .from(aiCitationTrackingResponses)
         .where(eq(aiCitationTrackingResponses.runId, selectedRun.id))
@@ -159,6 +164,7 @@ async function getOverview(projectId: string, runId?: string) {
     selectedRunId: selectedRun?.id ?? null,
     cells: responses.map((response) => ({
       ...response,
+      hasAnswer: Number(response.hasAnswer) === 1,
       citationCount: citedByResponse.get(response.id) ?? 0,
       trackedCitationCount: trackedByResponse.get(response.id) ?? 0,
     })),

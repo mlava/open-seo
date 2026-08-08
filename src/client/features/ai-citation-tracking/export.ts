@@ -20,6 +20,7 @@ export type ExportCell = {
   model: string;
   brandMentioned: boolean;
   errorMessage: string | null;
+  hasAnswer: boolean;
   citationCount: number;
   trackedCitationCount: number;
 };
@@ -48,6 +49,9 @@ function outcome(cell: ExportCell | undefined): string {
   if (cell.errorMessage) return "error";
   if (cell.trackedCitationCount > 0) return "cited you";
   if (cell.brandMentioned) return "mentioned only";
+  // For a search surface this means no AI answer was shown at all, which is a
+  // finding; for an assistant it is an empty response.
+  if (!cell.hasAnswer) return "no answer shown";
   // Distinct from "no mention": an answer that cited nothing is not evidence
   // of absence, and filtering on it is how you find the rows to discount.
   if (cell.citationCount === 0) return "cited nothing";
