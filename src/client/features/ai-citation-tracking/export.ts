@@ -42,12 +42,15 @@ function providerLabel(provider: string): string {
     : provider;
 }
 
-/** The same four states the matrix renders, spelled out for a spreadsheet. */
+/** The same states the matrix renders, spelled out for a spreadsheet. */
 function outcome(cell: ExportCell | undefined): string {
   if (!cell) return "not run";
   if (cell.errorMessage) return "error";
   if (cell.trackedCitationCount > 0) return "cited you";
   if (cell.brandMentioned) return "mentioned only";
+  // Distinct from "no mention": an answer that cited nothing is not evidence
+  // of absence, and filtering on it is how you find the rows to discount.
+  if (cell.citationCount === 0) return "cited nothing";
   return "no mention";
 }
 

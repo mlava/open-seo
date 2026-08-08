@@ -50,7 +50,11 @@ const RESULT_COLUMNS: McpTableColumn<CitationResultRow>[] = [
           ? "cited you"
           : row.brandMentioned
             ? "mentioned only"
-            : "no mention",
+            : // "cited nothing" is not absence: the answer grounded on no
+              // source at all, so it measures nothing about visibility.
+              row.citationCount === 0
+              ? "cited nothing"
+              : "no mention",
   },
   { header: "your citations", value: (row) => row.trackedCitationCount },
   { header: "all citations", value: (row) => row.citationCount },

@@ -22,13 +22,27 @@ export type MatrixPrompt = {
   tags: { id: string; name: string; color: string | null }[];
 };
 
-type CellState = "cited" | "mentioned" | "answered" | "error" | "missing";
+type CellState =
+  | "cited"
+  | "mentioned"
+  | "answered"
+  | "ungrounded"
+  | "error"
+  | "missing";
 
-function cellState(cell: MatrixCell | undefined): CellState {
+/**
+ * `ungrounded` exists because an answer that cited nothing at all says nothing
+ * about visibility, and folding it into "no mention" made absence look
+ * measured. On one real run 28 of 32 ChatGPT answers cited no domain
+ * whatsoever, so a headline of "0 of 32 cited you" was reporting a silent
+ * search, not a ranking.
+ */
+export function cellState(cell: MatrixCell | undefined): CellState {
   if (!cell) return "missing";
   if (cell.errorMessage) return "error";
   if (cell.trackedCitationCount > 0) return "cited";
   if (cell.brandMentioned) return "mentioned";
+  if (cell.citationCount === 0) return "ungrounded";
   return "answered";
 }
 
@@ -36,6 +50,7 @@ const STATE_GLYPH: Record<CellState, string> = {
   cited: "✓",
   mentioned: "◐",
   answered: "—",
+  ungrounded: "∅",
   error: "!",
   missing: "·",
 };
@@ -44,6 +59,7 @@ const STATE_CLASS: Record<CellState, string> = {
   cited: "bg-success/15 text-success",
   mentioned: "bg-warning/15 text-warning",
   answered: "text-base-content/40",
+  ungrounded: "text-base-content/30 italic",
   error: "bg-error/10 text-error",
   missing: "text-base-content/25",
 };
@@ -51,7 +67,8 @@ const STATE_CLASS: Record<CellState, string> = {
 const STATE_TITLE: Record<CellState, string> = {
   cited: "Cited a tracked domain",
   mentioned: "Mentioned the brand but cited no tracked domain",
-  answered: "Answered with no brand mention",
+  answered: "Cited other sources, none of them yours",
+  ungrounded: "Cited nothing at all — tells you nothing about visibility",
   error: "Provider call failed",
   missing: "Not run for this provider",
 };
@@ -155,6 +172,7 @@ function MatrixLegend() {
     "cited",
     "mentioned",
     "answered",
+    "ungrounded",
     "error",
     "missing",
   ];

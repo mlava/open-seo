@@ -1,5 +1,6 @@
 import { generateText } from "ai";
 import { getOptionalEnvValue } from "@/server/lib/runtime-env";
+import { isGroundingRedirect } from "./citationHelpers";
 import {
   CITATION_PROVIDERS,
   type CitationProvider,
@@ -289,22 +290,13 @@ function toolOutputSources(output: unknown): CitationSource[] {
   return found;
 }
 
-const GROUNDING_REDIRECT_HOST = "vertexaisearch.cloud.google.com";
 /**
  * Each resolution is an outbound subrequest and a Worker invocation only gets
  * 50, shared with every provider call and D1 query in the same batch. Ten
  * covers the sources an answer actually leans on; the rest keep the redirect
- * URL, and their Gemini title still carries the domain.
+ * URL and are attributed by title instead — see `attributedDomain`.
  */
 const MAX_REDIRECTS_RESOLVED = 10;
-
-export function isGroundingRedirect(url: string): boolean {
-  try {
-    return new URL(url).hostname === GROUNDING_REDIRECT_HOST;
-  } catch {
-    return false;
-  }
-}
 
 /**
  * Gemini returns grounding links as `vertexaisearch.cloud.google.com`

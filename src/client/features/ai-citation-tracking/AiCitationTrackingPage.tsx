@@ -163,14 +163,19 @@ function SummaryTiles({
   data: Overview;
   columnCount: number;
 }) {
-  const trackedCitations = data.cells.reduce(
-    (total, cell) => total + cell.trackedCitationCount,
-    0,
-  );
   const enabled = data.prompts.filter((prompt) => prompt.enabled).length;
   const completed = data.runs.filter(
     (run) => run.status === "completed",
   ).length;
+
+  // Only answers that cited something can say anything about visibility, so
+  // that is the denominator. Counting "cited you" against every answer — many
+  // of which cited no domain at all — reads as absence when it is really
+  // silence. See the `ungrounded` state in CitationMatrix.
+  const answered = data.cells.filter((cell) => !cell.errorMessage);
+  const grounded = answered.filter((cell) => cell.citationCount > 0);
+  const citedYou = grounded.filter((cell) => cell.trackedCitationCount > 0);
+  const ungrounded = answered.length - grounded.length;
 
   return (
     <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -185,9 +190,15 @@ function SummaryTiles({
         hint={`${data.configuredProviders.length} with a key`}
       />
       <StatTile
-        label="Your citations"
-        value={String(trackedCitations)}
-        hint="in the selected run"
+        label="Cited you"
+        value={
+          grounded.length === 0 ? "—" : `${citedYou.length}/${grounded.length}`
+        }
+        hint={
+          ungrounded > 0
+            ? `of answers that cited anything · ${ungrounded} cited nothing`
+            : "of answers that cited anything"
+        }
       />
       <StatTile label="Completed runs" value={String(completed)} />
     </section>

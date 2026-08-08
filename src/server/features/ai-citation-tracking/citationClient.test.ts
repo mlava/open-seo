@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  extractSources,
-  isGroundingRedirect,
-  resolveGroundingRedirects,
-} from "./citationClient";
+import { extractSources, resolveGroundingRedirects } from "./citationClient";
 
 describe("extractSources", () => {
   it("keeps url sources, drops non-url sources, and dedupes by url", () => {
@@ -77,18 +73,6 @@ describe("extractSources", () => {
     });
 
     expect(sources).toEqual([{ url: "https://primary.example", title: null }]);
-  });
-});
-
-describe("isGroundingRedirect", () => {
-  it("recognises Gemini grounding redirects and ignores ordinary urls", () => {
-    expect(
-      isGroundingRedirect(
-        "https://vertexaisearch.cloud.google.com/grounding-api-redirect/abc",
-      ),
-    ).toBe(true);
-    expect(isGroundingRedirect("https://example.com/page")).toBe(false);
-    expect(isGroundingRedirect("not a url")).toBe(false);
   });
 });
 

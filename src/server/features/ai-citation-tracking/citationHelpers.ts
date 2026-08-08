@@ -73,9 +73,34 @@ export function providersForPrompt(
  */
 export const MAX_CITATIONS_PER_RESPONSE = 60;
 
+export const GROUNDING_REDIRECT_HOST = "vertexaisearch.cloud.google.com";
+
+export function isGroundingRedirect(url: string): boolean {
+  return safeDomain(url) === GROUNDING_REDIRECT_HOST;
+}
+
 /**
- * Turn an answer's sources into citation rows. Sources that aren't parseable
- * URLs are dropped rather than stored with a null domain, since domain is what
+ * Which domain a citation should be attributed to.
+ *
+ * Normally the URL's host. But Gemini hands back grounding links as
+ * `vertexaisearch.cloud.google.com` redirects, and resolving those costs a
+ * subrequest each so only the first few get resolved. For the rest the host is
+ * Google's redirector, not the source — attributing to it silently scored real
+ * citations of a tracked domain as `isTrackedDomain: false`. Gemini sets the
+ * title to the site domain in exactly this case, so fall back to it.
+ */
+export function attributedDomain(source: {
+  url: string;
+  title: string | null;
+}): string | null {
+  const host = safeDomain(source.url);
+  if (host !== GROUNDING_REDIRECT_HOST) return host;
+  return source.title ? aliasDomain(source.title) : null;
+}
+
+/**
+ * Turn an answer's sources into citation rows. Sources with no attributable
+ * domain are dropped rather than stored with a null one, since domain is what
  * every rollup groups by. `citationOrder` reflects the order the assistant
  * cited them in.
  */
@@ -90,7 +115,7 @@ export function buildCitationRows(
   return sources
     .slice(0, MAX_CITATIONS_PER_RESPONSE)
     .flatMap((source, citationOrder) => {
-      const domain = safeDomain(source.url);
+      const domain = attributedDomain(source);
       return domain
         ? [
             {
