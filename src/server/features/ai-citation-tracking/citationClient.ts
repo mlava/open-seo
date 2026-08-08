@@ -38,6 +38,24 @@ export type CitationRunResult = {
 };
 
 /**
+ * Make the assistant search rather than letting it decide.
+ *
+ * Left on the default, ChatGPT answered 30 of 32 prompts with no citations at
+ * all, and the decision was not even stable — the same prompt grounded in one
+ * run and did not 40 minutes later. A column that is 94% non-observation
+ * measures nothing, so there is no user reality being preserved by leaving it
+ * alone. The consumer products search far more readily than the API default
+ * does, so forcing is arguably the closer analogue of what a person sees, not
+ * the further one.
+ *
+ * Applied only to the assistants that treat search as an optional tool.
+ * Perplexity searches on every request and exposes no tool to force, and
+ * Gemini and Grok are deliberately left on auto so the next run isolates this
+ * change to the two providers that were failing.
+ */
+const FORCE_SEARCH = "required" as const;
+
+/**
  * Each provider's key is an instance-wide Worker secret, not per-project: the
  * tracker spends the operator's own API budget rather than resold credits.
  */
@@ -164,6 +182,7 @@ async function callProvider(
       return generateText({
         model: openai.responses(modelId),
         tools: { web_search: openai.tools.webSearch({}) },
+        toolChoice: FORCE_SEARCH,
         prompt,
         // The Responses API stores answers server-side by default. This tab's
         // whole premise is that the evidence is private and project-scoped, so
@@ -177,6 +196,7 @@ async function callProvider(
       return generateText({
         model: anthropic(modelId),
         tools: { web_search: anthropic.tools.webSearch_20250305({}) },
+        toolChoice: FORCE_SEARCH,
         prompt,
       });
     }

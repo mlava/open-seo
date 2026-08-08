@@ -141,9 +141,27 @@ a tracked citation, and zero times on ChatGPT. Multi-token brands now match
 across any separator or none, so "Scholar Sidekick", "scholar-sidekick" and
 "ScholarSidekick" all count.
 
-When adding a rollup, ask what its denominator is, and when adding a signal, ask
-whether it can ever fire independently of the ones you already have. All three
-of these shipped looking correct.
+**An assistant that will not search cannot be measured at all.** Left on the
+default `tool_choice`, ChatGPT answered 30 of 32 prompts with no citations, and
+the decision was not stable — the same prompt grounded in one run and not in
+another 40 minutes later. Claude was little better at 23 of 32. Neither the
+`ungrounded` state nor the prose-mention fix rescues this: across 36 ChatGPT
+answers totalling 88k characters the brand name appears zero times, so there
+was nothing for a mention to catch. The assistants that treat search as an
+optional tool are therefore asked with `toolChoice: "required"`.
+
+This trades "what a user sees" for "when it searches, does it find you", and
+that trade is worth naming. It was made because the untraded column was 94%
+non-observation, and because the consumer products search far more readily than
+the API default, so forcing is arguably the closer analogue of a real session
+rather than the further one. Perplexity is excluded — it always searches and
+exposes no tool to force. Note that the `*-search-preview` models are not an
+alternative: they were shut down 2026-07-23 and were Chat Completions only.
+
+When adding a rollup, ask what its denominator is; when adding a signal, ask
+whether it can ever fire independently of the ones you already have; and when a
+column looks like a confident zero, check how much of it is observation. All
+four of these shipped looking correct.
 
 `brand_mentioned` is computed from the answer prose using the same
 `mentionRegex` Prompt Explorer uses (extracted to `shared/brand-mentions.ts`),
