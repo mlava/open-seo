@@ -18,6 +18,7 @@ function cell(overrides: Partial<ExportCell>): ExportCell {
     model: "gpt-5",
     brandMentioned: false,
     errorMessage: null,
+    hasAnswer: true,
     citationCount: 0,
     trackedCitationCount: 0,
     ...overrides,
@@ -42,7 +43,9 @@ describe("buildCitationExportRows", () => {
         cell({ promptId: "p2", provider: "anthropic", citationCount: 4 }),
         // Answered, but grounded on nothing — not the same as "no mention".
         cell({ promptId: "p3", citationCount: 0 }),
-        // p3 x anthropic deliberately absent.
+        // Surface produced no answer at all: for AI Overview, Google showed
+        // none for this query. Distinct again from answering without citing.
+        cell({ promptId: "p3", provider: "anthropic", hasAnswer: false }),
       ],
     );
 
@@ -52,7 +55,7 @@ describe("buildCitationExportRows", () => {
       "error",
       "no mention",
       "cited nothing",
-      "not run",
+      "no answer shown",
     ]);
   });
 

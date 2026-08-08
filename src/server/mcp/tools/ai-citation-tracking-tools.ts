@@ -50,11 +50,15 @@ const RESULT_COLUMNS: McpTableColumn<CitationResultRow>[] = [
           ? "cited you"
           : row.brandMentioned
             ? "mentioned only"
-            : // "cited nothing" is not absence: the answer grounded on no
-              // source at all, so it measures nothing about visibility.
-              row.citationCount === 0
-              ? "cited nothing"
-              : "no mention",
+            : // Neither of these is absence. "no answer shown" means the
+              // surface produced nothing (for a search surface, no AI answer
+              // appeared); "cited nothing" means it answered but grounded on
+              // no source, so it measures nothing about visibility.
+              !row.hasAnswer
+              ? "no answer shown"
+              : row.citationCount === 0
+                ? "cited nothing"
+                : "no mention",
   },
   { header: "your citations", value: (row) => row.trackedCitationCount },
   { header: "all citations", value: (row) => row.citationCount },
