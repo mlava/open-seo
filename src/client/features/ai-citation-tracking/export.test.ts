@@ -72,6 +72,28 @@ describe("buildCitationExportRows", () => {
     expect(row[8]).toBe("What are the best DOI lookup tools?");
   });
 
+  it("does not call an unparseable body 'no answer' when it cited sources", () => {
+    // Bing Copilot returned 8 references with a body we could not parse.
+    // Reporting that as "nothing was shown" would deny a surface that appeared.
+    const [row] = buildCitationExportRows(
+      prompts,
+      ["openai"],
+      [cell({ hasAnswer: false, citationCount: 8 })],
+    );
+
+    expect(row[4]).toBe("no mention");
+  });
+
+  it("reports no answer only when nothing at all came back", () => {
+    const [row] = buildCitationExportRows(
+      prompts,
+      ["openai"],
+      [cell({ hasAnswer: false, citationCount: 0 })],
+    );
+
+    expect(row[4]).toBe("no answer shown");
+  });
+
   it("leaves counts blank rather than zero for a pair that never ran", () => {
     const [row] = buildCitationExportRows(prompts, ["openai"], []);
     // A real zero and "no data" must not read the same in a spreadsheet.
