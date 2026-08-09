@@ -90,12 +90,14 @@ export function parseSerpApiAnswer(payload: unknown): SerpApiAnswer {
 
   const answerText = parts.join("\n\n");
   if (answerText === "" && seen.size > 0) {
-    // A surface that cited sources plainly answered, so an empty body means a
-    // response shape we do not read yet. Bing Copilot has done this on the same
-    // prompt in four consecutive runs. Log the keys, not the payload — enough
-    // to find the missing field next run, without dumping a whole response.
+    // Not a parser gap: the diagnostic showed such payloads carry only
+    // search_metadata, search_parameters, search_information and references —
+    // there is no answer field to read. SerpApi returns Bing Copilot's sources
+    // without its answer body on some queries, repeatably on the same one.
+    // Kept as a warning because the citations are still usable while any
+    // text-derived signal (notably brand mentions) is unmeasurable for the row.
     console.warn(
-      "[citation-tracking] serpapi answer had references but no parseable text; keys:",
+      "[citation-tracking] serpapi returned references with no answer body; keys:",
       Object.keys(container).join(","),
     );
   }
