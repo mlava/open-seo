@@ -46,9 +46,10 @@ export function cellState(cell: MatrixCell | undefined): CellState {
   if (cell.trackedCitationCount > 0) return "cited";
   if (cell.brandMentioned) return "mentioned";
   // Citations, not text, are the evidence a surface produced something.
-  // Bing Copilot has returned 8 references with an answer body we could not
-  // parse; treating that as "no answer shown" would claim the surface never
-  // appeared when it plainly did.
+  // SerpApi has returned Bing Copilot's references with no answer field at all
+  // — the payload carries only metadata and `references` — so treating that as
+  // "no answer shown" would claim the surface never appeared when it plainly
+  // cited eight sources.
   if (!cell.hasAnswer && cell.citationCount === 0) return "absent";
   if (cell.citationCount === 0) return "ungrounded";
   return "answered";
@@ -96,6 +97,19 @@ function stateTitle(state: CellState, provider: string): string {
   return isSerpApiProvider(provider)
     ? "No AI answer shown for this query — nothing to be cited in"
     : "Returned an empty answer";
+}
+
+/**
+ * A cell can cite sources while carrying no answer body: SerpApi has returned
+ * Bing Copilot's references with no answer field at all, on the same prompt in
+ * five consecutive runs. The citation counts are real, but `brandMentioned`
+ * false on such a row means "no text to search", not "not mentioned" — so say
+ * so rather than let it read as a finding.
+ */
+function cellCaveat(cell: MatrixCell | undefined): string {
+  return cell && !cell.hasAnswer && cell.citationCount > 0
+    ? " · answer text not captured, so a brand mention could not be checked"
+    : "";
 }
 
 export function CitationMatrix({
@@ -154,7 +168,7 @@ export function CitationMatrix({
                 const state = cellState(cell);
                 const title = cell?.errorMessage
                   ? `${STATE_TITLE.error}: ${cell.errorMessage}`
-                  : stateTitle(state, provider);
+                  : stateTitle(state, provider) + cellCaveat(cell);
                 return (
                   <td key={provider} className="text-center">
                     {cell ? (
