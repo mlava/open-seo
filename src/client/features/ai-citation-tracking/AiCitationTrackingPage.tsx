@@ -175,7 +175,11 @@ function SummaryTiles({
   // a query Google served no AI Overview for is not a place you failed to
   // appear. See the `ungrounded` and `absent` states in CitationMatrix.
   const live = data.cells.filter((cell) => !cell.errorMessage);
-  const answered = live.filter((cell) => cell.hasAnswer);
+  // Citations count as having produced something even when the body did not
+  // parse, so a surface that cited 8 sources is never filed under "no answer".
+  const answered = live.filter(
+    (cell) => cell.hasAnswer || cell.citationCount > 0,
+  );
   const grounded = answered.filter((cell) => cell.citationCount > 0);
   const citedYou = grounded.filter((cell) => cell.trackedCitationCount > 0);
   const ungrounded = answered.length - grounded.length;

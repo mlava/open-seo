@@ -54,7 +54,7 @@ const RESULT_COLUMNS: McpTableColumn<CitationResultRow>[] = [
               // surface produced nothing (for a search surface, no AI answer
               // appeared); "cited nothing" means it answered but grounded on
               // no source, so it measures nothing about visibility.
-              !row.hasAnswer
+              !row.hasAnswer && row.citationCount === 0
               ? "no answer shown"
               : row.citationCount === 0
                 ? "cited nothing"
