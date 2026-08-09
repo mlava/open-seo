@@ -88,7 +88,18 @@ export function parseSerpApiAnswer(payload: unknown): SerpApiAnswer {
     seen.set(url, { url, title });
   }
 
-  return { answerText: parts.join("\n\n"), sources: [...seen.values()] };
+  const answerText = parts.join("\n\n");
+  if (answerText === "" && seen.size > 0) {
+    // A surface that cited sources plainly answered, so an empty body means a
+    // response shape we do not read yet. Bing Copilot has done this on the same
+    // prompt in four consecutive runs. Log the keys, not the payload — enough
+    // to find the missing field next run, without dumping a whole response.
+    console.warn(
+      "[citation-tracking] serpapi answer had references but no parseable text; keys:",
+      Object.keys(container).join(","),
+    );
+  }
+  return { answerText, sources: [...seen.values()] };
 }
 
 async function serpApiRequest(
