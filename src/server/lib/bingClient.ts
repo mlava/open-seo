@@ -15,6 +15,10 @@ export class BingApiError extends Error {
     public readonly status: number,
     message: string,
     public readonly body?: string,
+    /** Bing's own `ErrorCode` from a `{"ErrorCode":n,"Message":"…"}` body, or
+     *  null when it sent something else. HTTP status alone does not identify a
+     *  Bing failure — 400 covers both "bad request" and "invalid token". */
+    public readonly errorCode: number | null = null,
   ) {
     super(message);
     this.name = "BingApiError";
@@ -114,12 +118,115 @@ export function parseWcfDate(value: unknown): Date | null {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
+/** Bing's InvalidToken code. Bing returns 400 with this for an access token it
+ *  minted seconds earlier and will accept again on the next call: measured
+ *  2026-08-12, one token, 10 sequential GetUserSites calls 7s apart succeeded
+ *  4 times and failed this way 6 times, interleaved randomly. It means "retry",
+ *  never "the grant is dead" — see isTransientBingFailure. */
+const BING_INVALID_TOKEN_CODE = 18;
+
+const bingErrorBodySchema = z.looseObject({ ErrorCode: z.number() });
+
+function parseBingErrorCode(body: string): number | null {
+  try {
+    const parsed = bingErrorBodySchema.safeParse(JSON.parse(body));
+    return parsed.success ? parsed.data.ErrorCode : null;
+  } catch {
+    // Bing also serves XML and HTML error pages, which carry no code we read.
+    return null;
+  }
+}
+
+/**
+ * Bing answered in a way worth replaying the identical request for, rather
+ * than surfacing. Every call this client makes is a read, so a retry is always
+ * safe.
+ *
+ * Deliberately narrow: 429 already tells the user to wait, and 4xx/5xx that
+ * Bing does not tag as InvalidToken are real failures. Retrying those would
+ * turn one bad request into eight.
+ */
+export function isTransientBingFailure(error: unknown): boolean {
+  if (!(error instanceof BingApiError)) return false;
+  if (error.errorCode === BING_INVALID_TOKEN_CODE) return true;
+  // Under load Bing answers 2xx with an empty or non-JSON body, which reaches
+  // the envelope check with nothing to record as `body`. A 2xx that *did*
+  // parse but carries no `d` is a genuine contract break, and is not retried.
+  return error.status >= 200 && error.status < 300 && error.body === undefined;
+}
+
+/** Compact, secret-free summary for logs. `error.message` alone loses both the
+ *  HTTP status and Bing's own ErrorCode, which are the only two things that
+ *  identify a Bing failure. */
+export function describeBingFailure(error: unknown): string {
+  if (error instanceof BingApiError) {
+    return `BingApiError status=${error.status} errorCode=${error.errorCode ?? "none"}: ${error.message}`;
+  }
+  if (error instanceof Error) return `${error.name}: ${error.message}`;
+  return String(error);
+}
+
+// The flapping is independent per call — successes and failures interleave on
+// one token — so each retry is a fresh chance. Measured 2026-08-12 the per-call
+// failure rate sat between 60% and 77%, and eight attempts cleared it on all
+// three trials (1, 4 and 8 attempts, worst case 8s).
+//
+// Not longer than this: Bing starts answering 202 with an empty body when it is
+// called in bursts, so a deeper ladder would buy a smaller failure rate by
+// provoking the other failure mode. The picker offers "try again" for the tail.
+const BING_RETRY_DELAYS_MS = [100, 200, 400, 800, 1_200, 1_600, 2_000];
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** One attempt: perform the call, map HTTP errors, then unwrap and return the
+ *  `d` payload. */
+async function sendBingRequest(
+  url: string,
+  token: string,
+  init?: { method?: string; body?: unknown },
+): Promise<unknown> {
+  const hasBody = init?.body !== undefined;
+  const response = await fetch(url, {
+    method: init?.method ?? "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/json",
+      ...(hasBody ? { "Content-Type": "application/json" } : {}),
+    },
+    body: hasBody ? JSON.stringify(init?.body) : undefined,
+  });
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    throw new BingApiError(
+      response.status,
+      messageForStatus(response.status, body),
+      body,
+      parseBingErrorCode(body),
+    );
+  }
+  const raw = await response.json().catch(() => undefined);
+  const envelope = bingEnvelopeSchema.safeParse(raw);
+  if (!envelope.success) {
+    throw new BingApiError(
+      response.status,
+      "Bing Webmaster returned an unexpected response (missing the `d` envelope).",
+      typeof raw === "string" ? raw : JSON.stringify(raw)?.slice(0, 300),
+    );
+  }
+  return envelope.data.d;
+}
+
 function messageForStatus(status: number, body: string): string {
   if (status === 401 || status === 403) {
     return "Bing Webmaster denied access (the connection was revoked, or this account has no verified permission). Reconnect Bing to continue.";
   }
   if (status === 429) {
     return "Bing Webmaster rate limit reached. Retry shortly.";
+  }
+  // Only reached once every retry has been spent, so say what is actually
+  // wrong: Bing is flapping, the connection is fine, reconnecting won't help.
+  if (parseBingErrorCode(body) === BING_INVALID_TOKEN_CODE) {
+    return "Bing Webmaster kept rejecting a valid access token, which it does intermittently. Your connection is fine — try again shortly.";
   }
   if (status === 404) {
     return "Bing Webmaster site not found. It may have been removed in Bing Webmaster Tools.";
@@ -224,41 +331,29 @@ export function createBingClient(opts: {
     return result.accessToken;
   }
 
-  /** Perform the call, map HTTP errors, then unwrap and return the `d`
-   *  payload. Callers validate the payload shape with zod. */
+  /** Perform the call, retrying Bing's transient answers on the same token,
+   *  then return the unwrapped `d` payload. Callers validate the payload shape
+   *  with zod. The token is minted once: a retry is for Bing flapping, not for
+   *  a credential problem, and re-minting per attempt would spend a subrequest
+   *  to get the identical token back. */
   async function request(
     url: string,
     init?: { method?: string; body?: unknown },
   ): Promise<unknown> {
     const token = await getToken();
-    const hasBody = init?.body !== undefined;
-    const response = await fetch(url, {
-      method: init?.method ?? "GET",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: "application/json",
-        ...(hasBody ? { "Content-Type": "application/json" } : {}),
-      },
-      body: hasBody ? JSON.stringify(init?.body) : undefined,
-    });
-    if (!response.ok) {
-      const body = await response.text().catch(() => "");
-      throw new BingApiError(
-        response.status,
-        messageForStatus(response.status, body),
-        body,
-      );
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await sendBingRequest(url, token, init);
+      } catch (error) {
+        if (
+          attempt >= BING_RETRY_DELAYS_MS.length ||
+          !isTransientBingFailure(error)
+        ) {
+          throw error;
+        }
+        await sleep(BING_RETRY_DELAYS_MS[attempt]);
+      }
     }
-    const raw = await response.json().catch(() => undefined);
-    const envelope = bingEnvelopeSchema.safeParse(raw);
-    if (!envelope.success) {
-      throw new BingApiError(
-        response.status,
-        "Bing Webmaster returned an unexpected response (missing the `d` envelope).",
-        typeof raw === "string" ? raw : JSON.stringify(raw)?.slice(0, 300),
-      );
-    }
-    return envelope.data.d;
   }
 
   return {

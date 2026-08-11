@@ -53,7 +53,11 @@ vi.mock("@/server/features/bing/services/BingService", () => ({
   BingNotConnectedError,
   isExpectedGrantFailure,
 }));
-vi.mock("@/server/lib/bingClient", () => ({ BingApiError, BingTokenError }));
+vi.mock("@/server/lib/bingClient", () => ({
+  BingApiError,
+  BingTokenError,
+  describeBingFailure: (error: unknown) => String(error),
+}));
 
 const authContext = {
   userId: "user_123",

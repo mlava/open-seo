@@ -39,6 +39,7 @@ vi.mock("@/server/lib/bingClient", () => ({
   createBingClient: mocks.createBingClient,
   BingApiError: class extends Error {},
   BingTokenError: class extends Error {},
+  describeBingFailure: (error: unknown) => String(error),
 }));
 vi.mock("@/server/features/bing/repositories/BingConnectionRepository", () => ({
   BingConnectionRepository: { getByProjectId: mocks.getByProjectId },

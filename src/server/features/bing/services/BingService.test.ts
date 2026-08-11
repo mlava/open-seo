@@ -82,6 +82,7 @@ const mocks = vi.hoisted(() => {
     existsForConnectorAccount: vi.fn(),
     BingApiError,
     BingTokenError,
+    describeBingFailure: (error: unknown) => String(error),
   };
 });
 
@@ -93,6 +94,7 @@ vi.mock("@/server/lib/bingClient", () => ({
   createBingClient: mocks.createBingClient,
   BingApiError: mocks.BingApiError,
   BingTokenError: mocks.BingTokenError,
+  describeBingFailure: mocks.describeBingFailure,
 }));
 vi.mock("@/server/features/bing/repositories/BingConnectionRepository", () => ({
   BingConnectionRepository: {
@@ -249,7 +251,7 @@ describe("BingService.listSitesForUserWithGrantStatus", () => {
     expect(mocks.dbDelete).not.toHaveBeenCalled();
   });
 
-  it("keeps non-auth Bing API errors reportable", async () => {
+  it("surfaces a non-auth Bing failure rather than prompting a pointless reconnect", async () => {
     const rateLimit = new mocks.BingApiError(429, "slow down");
     mocks.listSites.mockImplementation(
       async ({ bingAccountId }: { bingAccountId?: string }) => {
@@ -262,28 +264,16 @@ describe("BingService.listSitesForUserWithGrantStatus", () => {
       .mockImplementation(() => undefined);
     const { BingService } = await import("./BingService");
 
+    // Reconnecting cannot fix a Bing-side failure, so the caller gets an error
+    // to retry rather than an account row flagged "connection expired".
     await expect(
       BingService.listSitesForUserWithGrantStatus("u1"),
-    ).resolves.toEqual({
-      accounts: [
-        {
-          accountId: "uid-a",
-          email: "owner@example.com",
-          requiresReconnect: false,
-          sites: [verifiedSite],
-        },
-        {
-          accountId: "uid-b",
-          email: null,
-          requiresReconnect: true,
-          sites: [],
-        },
-      ],
-    });
+    ).rejects.toBe(rateLimit);
+
     expect(consoleError).toHaveBeenCalledWith(
       "Failed to list Bing Webmaster sites for grant",
       "grant-b",
-      rateLimit,
+      "BingApiError: slow down",
     );
     expect(mocks.dbDelete).not.toHaveBeenCalled();
     consoleError.mockRestore();

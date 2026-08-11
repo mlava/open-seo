@@ -67,6 +67,7 @@ const mocks = vi.hoisted(() => {
     existsForConnectorAccount: vi.fn(),
     BingApiError,
     BingTokenError,
+    describeBingFailure: (error: unknown) => String(error),
   };
 });
 
@@ -78,6 +79,7 @@ vi.mock("@/server/lib/bingClient", () => ({
   createBingClient: mocks.createBingClient,
   BingApiError: mocks.BingApiError,
   BingTokenError: mocks.BingTokenError,
+  describeBingFailure: mocks.describeBingFailure,
 }));
 vi.mock("@/server/features/bing/repositories/BingConnectionRepository", () => ({
   BingConnectionRepository: {

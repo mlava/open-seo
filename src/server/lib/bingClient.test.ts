@@ -185,6 +185,91 @@ describe("bingClient", () => {
     ).rejects.toMatchObject({ status: 429 });
   });
 
+  describe("InvalidToken retries", () => {
+    // The backoff ladder spans seconds; drive it rather than wait it out.
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    /** Bing's 400/ErrorCode 18 — returned for a token it minted seconds ago
+     *  and will accept on the next call. */
+    const invalidToken = () =>
+      jsonResponse({ ErrorCode: 18, Message: "ERROR!!! InvalidToken" }, 400);
+
+    it("replays the request on the same token until Bing answers", async () => {
+      mocks.fetch
+        .mockResolvedValueOnce(invalidToken())
+        .mockResolvedValueOnce(invalidToken())
+        .mockResolvedValueOnce(jsonResponse({ d: [] }));
+      const { createBingClient } = await import("./bingClient");
+
+      const sites = createBingClient({ userId: "u1" }).listSites();
+      await vi.runAllTimersAsync();
+
+      await expect(sites).resolves.toEqual([]);
+      expect(mocks.fetch).toHaveBeenCalledTimes(3);
+      // One mint, reused across attempts: a retry is for Bing flapping, not
+      // for a credential problem.
+      expect(mocks.getAccessToken).toHaveBeenCalledTimes(1);
+    });
+
+    it("gives up with the ErrorCode intact once the retries are spent", async () => {
+      // A fresh Response per attempt: a body can only be read once.
+      mocks.fetch.mockImplementation(async () => invalidToken());
+      const { createBingClient } = await import("./bingClient");
+
+      const sites = createBingClient({ userId: "u1" }).listSites();
+      // Assert before advancing: the rejection lands mid-ladder, and an
+      // unhandled one would fail the run.
+      const settled = expect(sites).rejects.toMatchObject({
+        status: 400,
+        errorCode: 18,
+      });
+      await vi.runAllTimersAsync();
+      await settled;
+
+      expect(mocks.fetch).toHaveBeenCalledTimes(8);
+    });
+
+    it("retries a 2xx whose body Bing left empty", async () => {
+      mocks.fetch
+        .mockResolvedValueOnce(new Response(null, { status: 202 }))
+        .mockResolvedValueOnce(jsonResponse({ d: [] }));
+      const { createBingClient } = await import("./bingClient");
+
+      const sites = createBingClient({ userId: "u1" }).listSites();
+      await vi.runAllTimersAsync();
+
+      await expect(sites).resolves.toEqual([]);
+      expect(mocks.fetch).toHaveBeenCalledTimes(2);
+    });
+
+    it("does not retry a 400 Bing tagged with another code", async () => {
+      mocks.fetch.mockResolvedValue(
+        jsonResponse({ ErrorCode: 3, Message: "ERROR!!! InvalidApiKey" }, 400),
+      );
+      const { createBingClient } = await import("./bingClient");
+
+      await expect(
+        createBingClient({ userId: "u1" }).listSites(),
+      ).rejects.toMatchObject({ status: 400, errorCode: 3 });
+      expect(mocks.fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not retry a 2xx body that parsed but carries no `d`", async () => {
+      mocks.fetch.mockResolvedValue(jsonResponse({ notD: [] }));
+      const { createBingClient } = await import("./bingClient");
+
+      await expect(
+        createBingClient({ userId: "u1" }).listSites(),
+      ).rejects.toBeInstanceOf(Error);
+      expect(mocks.fetch).toHaveBeenCalledTimes(1);
+    });
+  });
+
   it("throws BingTokenError when no access token can be minted", async () => {
     mocks.getAccessToken.mockRejectedValue(new Error("revoked"));
     const { createBingClient, BingTokenError } = await import("./bingClient");

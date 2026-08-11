@@ -5,6 +5,7 @@ import { BING_OAUTH_PROVIDER_ID } from "@/shared/bing";
 import { AppError } from "@/server/lib/errors";
 import {
   createBingClient,
+  describeBingFailure,
   BingApiError,
   BingTokenError,
   type BingUrlInfo,
@@ -95,7 +96,12 @@ async function listGrantsForUser(userId: string) {
 
 /** Expected ways a stored grant fails to reach Bing Webmaster: no token could
  *  be minted (refresh token revoked or expired), or Bing rejected the call
- *  (401/403). These surface a reconnect prompt without fault logging. */
+ *  (401/403). These surface a reconnect prompt without fault logging.
+ *
+ *  Nothing else may be answered with a reconnect prompt. Bing intermittently
+ *  rejects valid tokens with 400/ErrorCode 18 (see isTransientBingFailure);
+ *  labelling that "connection expired" sends the user into a re-auth loop that
+ *  cannot fix it, because the grant was never the problem. */
 export function isExpectedGrantFailure(error: unknown): boolean {
   if (error instanceof BingTokenError) return true;
   return (
@@ -132,22 +138,26 @@ async function listSitesForUserWithGrantStatus(
           sites,
         };
       } catch (error) {
-        if (!isExpectedGrantFailure(error)) {
-          // grant.id, never grant.accountId: the latter is the webmasteruid,
-          // which doubles as Bing's site verification code. Logs and Sentry are
-          // a lower-trust store than the database.
-          console.error(
-            "Failed to list Bing Webmaster sites for grant",
-            grant.id,
-            error,
-          );
+        if (isExpectedGrantFailure(error)) {
+          return {
+            accountId: grant.accountId,
+            email: null,
+            requiresReconnect: true,
+            sites: [],
+          };
         }
-        return {
-          accountId: grant.accountId,
-          email: null,
-          requiresReconnect: true,
-          sites: [],
-        };
+        // grant.id, never grant.accountId: the latter is the webmasteruid,
+        // which doubles as Bing's site verification code. Logs and Sentry are
+        // a lower-trust store than the database.
+        console.error(
+          "Failed to list Bing Webmaster sites for grant",
+          grant.id,
+          describeBingFailure(error),
+        );
+        // Fail the whole listing rather than dropping this account from the
+        // picker: the caller renders "couldn't load your sites / try again",
+        // which is what a Bing-side failure actually warrants.
+        throw error;
       }
     }),
   );
