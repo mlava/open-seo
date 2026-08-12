@@ -31,6 +31,9 @@ describe("bingClient", () => {
     mocks.getAccessToken.mockResolvedValue({ accessToken: "tok_bing" });
     mocks.fetch.mockReset();
     vi.stubGlobal("fetch", mocks.fetch);
+    // The retry circuit breaker is module state: a test that trips it would
+    // otherwise suppress the next test's retries.
+    vi.resetModules();
   });
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -257,6 +260,58 @@ describe("bingClient", () => {
         createBingClient({ userId: "u1" }).listSites(),
       ).rejects.toMatchObject({ status: 400, errorCode: 3 });
       expect(mocks.fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("caps the cost when a whole page load fails together", async () => {
+      mocks.fetch.mockImplementation(async () => invalidToken());
+      const { createBingClient } = await import("./bingClient");
+      const client = createBingClient({ userId: "u1" });
+
+      // The Bing performance page fires three calls in parallel. Unbounded that
+      // is 3 full ladders; the breaker has to stop it well short.
+      const calls = Promise.all([
+        client.listSites().catch(() => "failed"),
+        client.listSites().catch(() => "failed"),
+        client.listSites().catch(() => "failed"),
+      ]);
+      await vi.runAllTimersAsync();
+      await expect(calls).resolves.toEqual(["failed", "failed", "failed"]);
+      // 24 unbounded; 12 measured with the breaker, and 3 on the loads after.
+      expect(mocks.fetch.mock.calls.length).toBeLessThanOrEqual(12);
+
+      // Still one attempt per call afterwards — Bing may have recovered, and
+      // the breaker must never fail a call it would have answered.
+      mocks.fetch.mockClear();
+      const next = client.listSites();
+      const settled = expect(next).rejects.toMatchObject({ errorCode: 18 });
+      await vi.runAllTimersAsync();
+      await settled;
+      expect(mocks.fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("restores the ladder once Bing answers again", async () => {
+      mocks.fetch.mockImplementation(async () => invalidToken());
+      const { createBingClient } = await import("./bingClient");
+      const client = createBingClient({ userId: "u1" });
+
+      const tripped = Promise.all([
+        client.listSites().catch(() => "failed"),
+        client.listSites().catch(() => "failed"),
+      ]);
+      await vi.runAllTimersAsync();
+      await tripped;
+
+      mocks.fetch.mockReset().mockResolvedValueOnce(jsonResponse({ d: [] }));
+      await expect(client.listSites()).resolves.toEqual([]);
+
+      mocks.fetch
+        .mockReset()
+        .mockResolvedValueOnce(invalidToken())
+        .mockResolvedValueOnce(jsonResponse({ d: [] }));
+      const recovered = client.listSites();
+      await vi.runAllTimersAsync();
+      await expect(recovered).resolves.toEqual([]);
+      expect(mocks.fetch).toHaveBeenCalledTimes(2);
     });
 
     it("does not retry a 2xx body that parsed but carries no `d`", async () => {

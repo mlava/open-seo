@@ -173,10 +173,56 @@ export function describeBingFailure(error: unknown): string {
 //
 // Not longer than this: Bing starts answering 202 with an empty body when it is
 // called in bursts, so a deeper ladder would buy a smaller failure rate by
-// provoking the other failure mode. The picker offers "try again" for the tail.
+// provoking the other failure mode. The picker offers "try again" for the tail,
+// and the circuit breaker below caps the cost when the flapping is total rather
+// than partial.
 const BING_RETRY_DELAYS_MS = [100, 200, 400, 800, 1_200, 1_600, 2_000];
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Retrying only pays while the flapping is partial. On 2026-08-12 Bing's OAuth
+// acceptance went from ~30-40% to zero, and a single page load — three calls in
+// parallel — spent 24 requests and 10s arriving at a failure the first attempt
+// already knew about. Past this many transient failures in a row the ladder is
+// suppressed until the cooldown lapses.
+//
+// Best-effort by design: this is per-isolate, so it is a cost cap rather than a
+// global view of Bing's health, and it never fails a call Bing would have
+// answered — only the *retries* are suppressed, the first attempt always runs.
+// Must exceed the ladder length: one call working through its own retries is
+// the case retrying exists for, and must never trip the breaker by itself. It
+// takes several calls failing together — a page load's worth — to open it.
+const BING_CIRCUIT_THRESHOLD = BING_RETRY_DELAYS_MS.length + 3;
+const BING_CIRCUIT_COOLDOWN_MS = 60_000;
+
+let consecutiveTransientFailures = 0;
+let circuitOpenedAt = 0;
+
+function recordBingSuccess(): void {
+  consecutiveTransientFailures = 0;
+  circuitOpenedAt = 0;
+}
+
+function recordTransientBingFailure(): void {
+  consecutiveTransientFailures += 1;
+  if (consecutiveTransientFailures >= BING_CIRCUIT_THRESHOLD && !circuitOpenedAt) {
+    circuitOpenedAt = Date.now();
+  }
+}
+
+function isBingRetryCircuitOpen(): boolean {
+  if (!circuitOpenedAt) return false;
+  if (Date.now() - circuitOpenedAt < BING_CIRCUIT_COOLDOWN_MS) return true;
+  // Cooldown lapsed — let the next call ladder again so recovery is noticed.
+  recordBingSuccess();
+  return false;
+}
+
+/** Test seam: the breaker is module state, so a test that trips it would
+ *  otherwise leak into the next one. */
+export function resetBingRetryCircuit(): void {
+  recordBingSuccess();
+}
 
 /** One attempt: perform the call, map HTTP errors, then unwrap and return the
  *  `d` payload. */
@@ -343,11 +389,15 @@ export function createBingClient(opts: {
     const token = await getToken();
     for (let attempt = 0; ; attempt++) {
       try {
-        return await sendBingRequest(url, token, init);
+        const payload = await sendBingRequest(url, token, init);
+        recordBingSuccess();
+        return payload;
       } catch (error) {
+        if (!isTransientBingFailure(error)) throw error;
+        recordTransientBingFailure();
         if (
           attempt >= BING_RETRY_DELAYS_MS.length ||
-          !isTransientBingFailure(error)
+          isBingRetryCircuitOpen()
         ) {
           throw error;
         }
