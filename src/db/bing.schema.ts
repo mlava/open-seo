@@ -33,9 +33,15 @@ export const bingConnections = sqliteTable(
     // Bing's `webmasteruid`, the stable per-account identifier.
     bingAccountId: text("bing_account_id"),
     connectedAccountEmail: text("connected_account_email"),
-    // Always "oauth" today; "api_key" is reserved for the deferred
-    // self-hosted lane (see specs/0009).
+    // "oauth" or "api_key" (see specs/0009). The API-key lane became load
+    // bearing on 2026-08-12, when Bing began rejecting valid OAuth tokens.
     authMode: text("auth_mode").notNull(),
+    // Bing's account-wide API key, encrypted at rest with symmetricEncrypt
+    // under BETTER_AUTH_SECRET — the same key and helper that protect the
+    // OAuth tokens in `account`. Null on every "oauth" row. Deliberately NOT
+    // in `account`: that table's refresh machinery does not apply to a
+    // non-expiring key.
+    apiKeyEncrypted: text("api_key_encrypted"),
     createdAt: text("created_at")
       .notNull()
       .default(sql`(current_timestamp)`),

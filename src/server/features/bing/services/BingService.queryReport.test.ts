@@ -41,6 +41,10 @@ vi.mock("@/server/lib/bingClient", () => ({
   BingTokenError: class extends Error {},
   describeBingFailure: (error: unknown) => String(error),
 }));
+vi.mock("@/server/features/bing/apiKeyCrypto", () => ({
+  decryptBingApiKey: vi.fn().mockResolvedValue("plain-key"),
+  encryptBingApiKey: vi.fn().mockResolvedValue("cipher"),
+}));
 vi.mock("@/server/features/bing/repositories/BingConnectionRepository", () => ({
   BingConnectionRepository: { getByProjectId: mocks.getByProjectId },
 }));
@@ -132,6 +136,7 @@ describe("BingService.getQueryReport", () => {
     // top query sits at position 2 — outside the 5-20 band.
     expect(report.striking.map((row) => row.key)).toEqual(["striking query"]);
     expect(mocks.createBingClient).toHaveBeenCalledWith({
+      mode: "oauth",
       userId: "u1",
       bingAccountId: "uid-a",
     });

@@ -1,0 +1,1 @@
+ALTER TABLE `bing_connections` ADD `api_key_encrypted` text;

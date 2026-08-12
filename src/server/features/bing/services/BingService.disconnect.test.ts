@@ -81,6 +81,10 @@ vi.mock("@/server/lib/bingClient", () => ({
   BingTokenError: mocks.BingTokenError,
   describeBingFailure: mocks.describeBingFailure,
 }));
+vi.mock("@/server/features/bing/apiKeyCrypto", () => ({
+  decryptBingApiKey: vi.fn().mockResolvedValue("plain-key"),
+  encryptBingApiKey: vi.fn().mockResolvedValue("cipher"),
+}));
 vi.mock("@/server/features/bing/repositories/BingConnectionRepository", () => ({
   BingConnectionRepository: {
     upsert: mocks.upsert,

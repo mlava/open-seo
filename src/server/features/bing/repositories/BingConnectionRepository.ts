@@ -20,9 +20,14 @@ async function upsert(input: {
   organizationId: string;
   siteUrl: string;
   connectedByUserId: string;
-  bingAccountId: string;
+  /** Null in api_key mode: Bing's key exposes no webmasteruid. */
+  bingAccountId: string | null;
   connectedAccountEmail: string | null;
   authMode: "oauth" | "api_key";
+  /** Already encrypted by apiKeyCrypto — this layer never sees the plaintext.
+   *  Written unconditionally, so switching a project back to oauth clears the
+   *  stored key rather than leaving it readable. */
+  apiKeyEncrypted: string | null;
 }): Promise<BingConnection> {
   const [row] = await db
     .insert(bingConnections)
@@ -35,6 +40,7 @@ async function upsert(input: {
         connectedByUserId: input.connectedByUserId,
         bingAccountId: input.bingAccountId,
         authMode: input.authMode,
+        apiKeyEncrypted: input.apiKeyEncrypted,
         connectedAccountEmail: sql`coalesce(${input.connectedAccountEmail}, ${bingConnections.connectedAccountEmail})`,
         updatedAt: sql`(current_timestamp)`,
       },

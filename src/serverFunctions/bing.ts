@@ -28,6 +28,16 @@ const setSiteSchema = projectScopedSchema.extend({
   accountId: z.string().min(1),
   siteUrl: z.string().min(1),
 });
+// Bing's key is a 32-char hex string today, but that is undocumented, so this
+// only trims and bounds it rather than pinning a format Bing may widen.
+const apiKeySchema = z.string().trim().min(8).max(256);
+const listSitesForApiKeySchema = projectScopedSchema.extend({
+  apiKey: apiKeySchema,
+});
+const setSiteWithApiKeySchema = projectScopedSchema.extend({
+  apiKey: apiKeySchema,
+  siteUrl: z.string().min(1),
+});
 
 export const getBingConnection = createServerFn({ method: "POST" })
   .middleware(requireProjectContext)
@@ -47,6 +57,9 @@ export const getBingConnection = createServerFn({ method: "POST" })
       siteUrl: connection?.siteUrl ?? null,
       connectedByEmail: connection?.connectedAccountEmail ?? null,
       connectedAt: connection?.createdAt ?? null,
+      // Never the key itself — only which lane this project connected on, so
+      // the card can say so and offer the matching reconnect path.
+      authMode: connection?.authMode ?? null,
     };
   });
 
@@ -92,6 +105,55 @@ export const setBingSite = createServerFn({ method: "POST" })
         event: "bing:site_select",
         organizationId: context.organizationId,
         properties: { project_id: context.projectId, site_url: data.siteUrl },
+      }),
+    );
+    return { connected: true as const, siteUrl: connection.siteUrl };
+  });
+
+/**
+ * Sites an API key can see, so the user can pick one before it is stored.
+ *
+ * The key arrives in the request body and is deliberately not persisted here —
+ * nothing is written until setBingSiteWithApiKey. It is also never echoed back
+ * in the response.
+ */
+export const listBingSitesForApiKey = createServerFn({ method: "POST" })
+  .middleware(requireProjectContext)
+  .validator(listSitesForApiKeySchema)
+  .handler(async ({ data }) => {
+    const sites = await BingService.listSitesForApiKey(data.apiKey);
+    return {
+      sites: sites.map((site) => ({
+        siteUrl: site.url,
+        isVerified: site.isVerified,
+        selectable: site.isVerified,
+      })),
+    };
+  });
+
+/** Connect a project using Bing's account-wide API key instead of OAuth. The
+ *  key is encrypted before it reaches the database. */
+export const setBingSiteWithApiKey = createServerFn({ method: "POST" })
+  .middleware(requireProjectContext)
+  .validator(setSiteWithApiKeySchema)
+  .handler(async ({ data, context }) => {
+    const connection = await BingService.setSiteWithApiKey({
+      projectId: context.projectId,
+      organizationId: context.organizationId,
+      siteUrl: data.siteUrl,
+      apiKey: data.apiKey,
+      userId: context.userId,
+    });
+    waitUntil(
+      captureServerEvent({
+        distinctId: context.userId,
+        event: "bing:site_select",
+        organizationId: context.organizationId,
+        properties: {
+          project_id: context.projectId,
+          site_url: data.siteUrl,
+          auth_mode: "api_key",
+        },
       }),
     );
     return { connected: true as const, siteUrl: connection.siteUrl };

@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { getStandardErrorMessage } from "@/client/lib/error-messages";
 import { captureClientEvent } from "@/client/lib/posthog";
 import { BingGlyph } from "@/client/features/bing/BingGlyph";
+import { BingApiKeyPanel } from "@/client/features/bing/BingApiKeyPanel";
 import {
   BingSitePicker,
   type BingSiteSelection,
@@ -23,6 +24,7 @@ import {
 export function BingConnectionCard({ projectId }: { projectId: string }) {
   const queryClient = useQueryClient();
   const [picking, setPicking] = React.useState(false);
+  const [usingApiKey, setUsingApiKey] = React.useState(false);
   const [selection, setSelection] = React.useState<BingSiteSelection | null>(
     null,
   );
@@ -125,8 +127,18 @@ export function BingConnectionCard({ projectId }: { projectId: string }) {
           <span className="loading loading-spinner loading-sm" />
           Checking…
         </div>
+      ) : usingApiKey ? (
+        <BingApiKeyPanel
+          projectId={projectId}
+          onConnected={() => {
+            setUsingApiKey(false);
+            setPicking(false);
+            invalidateConnectionCaches();
+          }}
+          onCancel={() => setUsingApiKey(false)}
+        />
       ) : needsSetup ? (
-        <SetupWarning />
+        <SetupWarning onUseApiKey={() => setUsingApiKey(true)} />
       ) : connected && !picking ? (
         <ConnectedState
           glyph={<BingGlyph className="size-[18px]" />}
@@ -151,6 +163,7 @@ export function BingConnectionCard({ projectId }: { projectId: string }) {
           saving={setSiteMutation.isPending}
           onRetry={() => void sitesQuery.refetch()}
           onReconnect={handleConnect}
+          onUseApiKey={() => setUsingApiKey(true)}
           secondaryAction={
             connected
               ? { label: "Cancel", onClick: () => setPicking(false) }
@@ -168,14 +181,23 @@ export function BingConnectionCard({ projectId }: { projectId: string }) {
             Connect Bing Webmaster Tools to see clicks and impressions from Bing
             — the index behind Copilot and ChatGPT search.
           </p>
-          <button
-            type="button"
-            onClick={handleConnect}
-            className="inline-flex items-center gap-2.5 rounded-lg border border-base-300 bg-base-100 px-4 py-2.5 text-sm font-semibold text-base-content shadow-sm transition hover:bg-base-200 hover:shadow focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-          >
-            <BingGlyph className="size-[18px]" />
-            Connect with Bing
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={handleConnect}
+              className="inline-flex items-center gap-2.5 rounded-lg border border-base-300 bg-base-100 px-4 py-2.5 text-sm font-semibold text-base-content shadow-sm transition hover:bg-base-200 hover:shadow focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            >
+              <BingGlyph className="size-[18px]" />
+              Connect with Bing
+            </button>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={() => setUsingApiKey(true)}
+            >
+              Use an API key instead
+            </button>
+          </div>
         </div>
       )}
     </IntegrationCard>
@@ -185,7 +207,7 @@ export function BingConnectionCard({ projectId }: { projectId: string }) {
 /** Bing rejects localhost redirect URIs and allows one redirect URI per OAuth
  *  client, so self-hosters need their own registered client rather than a
  *  local flow. Say that plainly instead of offering a button that cannot work. */
-function SetupWarning() {
+function SetupWarning({ onUseApiKey }: { onUseApiKey: () => void }) {
   return (
     <div className="space-y-2">
       <p className="text-sm text-base-content/70">
@@ -212,6 +234,13 @@ function SetupWarning() {
         . Bing allows one redirect URI per client and rejects localhost, so each
         deployment needs its own registered client.
       </p>
+      <p className="text-xs text-base-content/55">
+        An account-wide API key from the same settings page needs none of that,
+        and is the only lane that works while Bing's OAuth is degraded.
+      </p>
+      <button type="button" className="btn btn-ghost btn-sm" onClick={onUseApiKey}>
+        Use an API key instead
+      </button>
     </div>
   );
 }

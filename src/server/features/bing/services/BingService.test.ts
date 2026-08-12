@@ -83,6 +83,8 @@ const mocks = vi.hoisted(() => {
     BingApiError,
     BingTokenError,
     describeBingFailure: (error: unknown) => String(error),
+    decryptBingApiKey: vi.fn().mockResolvedValue("plain-key"),
+    encryptBingApiKey: vi.fn().mockResolvedValue("cipher"),
   };
 });
 
@@ -95,6 +97,10 @@ vi.mock("@/server/lib/bingClient", () => ({
   BingApiError: mocks.BingApiError,
   BingTokenError: mocks.BingTokenError,
   describeBingFailure: mocks.describeBingFailure,
+}));
+vi.mock("@/server/features/bing/apiKeyCrypto", () => ({
+  decryptBingApiKey: mocks.decryptBingApiKey,
+  encryptBingApiKey: mocks.encryptBingApiKey,
 }));
 vi.mock("@/server/features/bing/repositories/BingConnectionRepository", () => ({
   BingConnectionRepository: {
@@ -141,6 +147,7 @@ describe("BingService.setSite", () => {
     await BingService.setSite({ ...baseInput, siteUrl: "https://x.example/" });
 
     expect(mocks.createBingClient).toHaveBeenCalledWith({
+      mode: "oauth",
       userId: "u1",
       bingAccountId: "uid-a",
     });
@@ -282,6 +289,8 @@ describe("BingService.listSitesForUserWithGrantStatus", () => {
 
 describe("BingService.getPerformance", () => {
   beforeEach(() => {
+    // vitest restoreMocks wipes implementations between tests.
+    mocks.decryptBingApiKey.mockResolvedValue("plain-key");
     mocks.getByProjectId.mockReset();
     mocks.getRankAndTrafficStats.mockReset().mockResolvedValue([]);
     mocks.createBingClient.mockClear();
@@ -318,6 +327,7 @@ describe("BingService.getPerformance", () => {
       rows,
     });
     expect(mocks.createBingClient).toHaveBeenCalledWith({
+      mode: "oauth",
       userId: "u1",
       bingAccountId: "uid-a",
     });
@@ -336,21 +346,44 @@ describe("BingService.getPerformance", () => {
     await BingService.getPerformance({ projectId: "p1" });
 
     expect(mocks.createBingClient).toHaveBeenCalledWith({
+      mode: "oauth",
       userId: "u1",
       bingAccountId: undefined,
     });
   });
 
-  it("rejects api_key connections with a clear AppError", async () => {
+  it("builds an api_key client from the decrypted stored key", async () => {
     mocks.getByProjectId.mockResolvedValue({
       connectedByUserId: "u1",
-      connectedAccountEmail: "owner@example.com",
+      connectedAccountEmail: null,
       bingAccountId: null,
       siteUrl: "https://x.example/",
       authMode: "api_key",
+      apiKeyEncrypted: "cipher",
     });
     const { BingService } = await import("./BingService");
 
+    await BingService.getPerformance({ projectId: "p1" });
+
+    expect(mocks.decryptBingApiKey).toHaveBeenCalledWith("cipher");
+    expect(mocks.createBingClient).toHaveBeenCalledWith({
+      mode: "api_key",
+      apiKey: "plain-key",
+    });
+  });
+
+  it("refuses an api_key row with no stored key rather than falling back to oauth", async () => {
+    mocks.getByProjectId.mockResolvedValue({
+      connectedByUserId: "u1",
+      connectedAccountEmail: null,
+      bingAccountId: null,
+      siteUrl: "https://x.example/",
+      authMode: "api_key",
+      apiKeyEncrypted: null,
+    });
+    const { BingService } = await import("./BingService");
+
+    // Falling back would call Bing as whoever is in connectedByUserId.
     await expect(
       BingService.getPerformance({ projectId: "p1" }),
     ).rejects.toMatchObject({ code: "CONFLICT" });

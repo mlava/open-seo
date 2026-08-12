@@ -92,6 +92,7 @@ describe("getBingConnection", () => {
       siteUrl: null,
       connectedByEmail: null,
       connectedAt: null,
+      authMode: null,
     });
   });
 
@@ -101,6 +102,7 @@ describe("getBingConnection", () => {
       siteUrl: "https://x.example/",
       connectedAccountEmail: "owner@example.com",
       createdAt: "2026-01-01T00:00:00.000Z",
+      authMode: "oauth",
     });
     mocks.userHasGrant.mockResolvedValue(true);
 
@@ -111,6 +113,7 @@ describe("getBingConnection", () => {
       siteUrl: "https://x.example/",
       connectedByEmail: "owner@example.com",
       connectedAt: "2026-01-01T00:00:00.000Z",
+      authMode: "oauth",
     });
   });
 });

@@ -15,6 +15,10 @@ import {
   type BingConnection,
 } from "@/server/features/bing/repositories/BingConnectionRepository";
 import {
+  decryptBingApiKey,
+  encryptBingApiKey,
+} from "@/server/features/bing/apiKeyCrypto";
+import {
   aggregateBingStatRows,
   buildBingStrikingRows,
   type BingAggregateRow,
@@ -117,6 +121,7 @@ async function listSitesForUserWithGrantStatus(
   const accounts = await Promise.all(
     grants.map(async (grant) => {
       const client = createBingClient({
+        mode: "oauth",
         userId,
         bingAccountId: grant.accountId,
       });
@@ -182,6 +187,7 @@ async function setSite(input: {
   }
 
   const client = createBingClient({
+    mode: "oauth",
     userId: input.userId,
     bingAccountId: input.accountId,
   });
@@ -216,6 +222,59 @@ async function setSite(input: {
     bingAccountId: input.accountId,
     connectedAccountEmail,
     authMode: "oauth",
+    // Clears any key left by a previous api_key connection on this project.
+    apiKeyEncrypted: null,
+  });
+}
+
+/** Sites visible to an API key, for the picker. The key is verified by using
+ *  it — Bing has no "validate key" endpoint — so a bad key surfaces here as
+ *  the 400/ErrorCode 3 `InvalidApiKey` that Bing returns. */
+async function listSitesForApiKey(apiKey: string): Promise<BingSite[]> {
+  return createBingClient({ mode: "api_key", apiKey }).listSites();
+}
+
+/**
+ * Connect a project with Bing's account-wide API key instead of OAuth.
+ *
+ * Mirrors setSite's checks — the site must exist on the account and be
+ * verified — but proves ownership with the key itself rather than a grant, so
+ * there is no `account` row and no `bingAccountId` to match against. Bing's
+ * key carries no identity claim either, so `connectedAccountEmail` stays null.
+ */
+async function setSiteWithApiKey(input: {
+  projectId: string;
+  organizationId: string;
+  siteUrl: string;
+  apiKey: string;
+  userId: string;
+}): Promise<BingConnection> {
+  const sites = await listSitesForApiKey(input.apiKey);
+  const match = sites.find((s) => s.url === input.siteUrl);
+  if (!match) {
+    throw new AppError(
+      "NOT_FOUND",
+      "That Bing Webmaster site isn't available on the account this API key belongs to.",
+    );
+  }
+  if (!match.isVerified) {
+    throw new AppError(
+      "FORBIDDEN",
+      "That Bing Webmaster site isn't verified yet.",
+    );
+  }
+  return BingConnectionRepository.upsert({
+    projectId: input.projectId,
+    organizationId: input.organizationId,
+    siteUrl: input.siteUrl,
+    connectedByUserId: input.userId,
+    // The key is account-wide and carries no webmasteruid claim, so there is
+    // no per-account identifier to record. Null also keeps disconnect() from
+    // mistaking this row for one holding an OAuth grant still in use.
+    bingAccountId: null,
+    connectedAccountEmail: null,
+    authMode: "api_key",
+    apiKeyEncrypted: await encryptBingApiKey(input.apiKey),
   });
 }
 
@@ -263,7 +322,7 @@ async function disconnect(input: {
 async function getPerformance(input: {
   projectId: string;
 }): Promise<BingPerformanceResult> {
-  const { connection, client } = await resolveOauthClient(input.projectId);
+  const { connection, client } = await resolveClient(input.projectId);
   const rows = await client.getRankAndTrafficStats(connection.siteUrl);
   return {
     siteUrl: connection.siteUrl,
@@ -286,7 +345,7 @@ async function inspectUrls(input: {
     | { url: string; error: string }
   >;
 }> {
-  const { connection, client } = await resolveOauthClient(input.projectId);
+  const { connection, client } = await resolveClient(input.projectId);
   const results = await Promise.all(
     input.urls.map(async (url) => {
       try {
@@ -308,9 +367,10 @@ async function inspectUrls(input: {
   return { siteUrl: connection.siteUrl, results };
 }
 
-/** Resolve a project's connection to a ready OAuth client, or throw the same
- *  errors getPerformance always has (not connected / api_key unsupported). */
-async function resolveOauthClient(projectId: string): Promise<{
+/** Resolve a project's connection to a ready client, whichever way it
+ *  authenticates. Throws BingNotConnectedError when the project has no
+ *  connection at all. */
+async function resolveClient(projectId: string): Promise<{
   connection: BingConnection;
   client: BingClient;
 }> {
@@ -318,17 +378,33 @@ async function resolveOauthClient(projectId: string): Promise<{
   if (!connection) {
     throw new BingNotConnectedError(projectId);
   }
+  return { connection, client: await clientForConnection(connection) };
+}
+
+/** The stored auth_mode decides the credential. A row marked api_key with no
+ *  stored key is corrupt rather than empty — treat it as a connection to
+ *  re-enter, never as a silent fallback to OAuth, which would call Bing as
+ *  whoever happens to be in connectedByUserId. */
+async function clientForConnection(
+  connection: BingConnection,
+): Promise<BingClient> {
   if (connection.authMode === "api_key") {
-    throw new AppError(
-      "CONFLICT",
-      "This project's Bing connection uses an API key, which isn't supported yet. Reconnect with a Bing account (OAuth) to view performance.",
-    );
+    if (!connection.apiKeyEncrypted) {
+      throw new AppError(
+        "CONFLICT",
+        "This project's Bing connection is missing its API key. Re-enter it to reconnect.",
+      );
+    }
+    return createBingClient({
+      mode: "api_key",
+      apiKey: await decryptBingApiKey(connection.apiKeyEncrypted),
+    });
   }
-  const client = createBingClient({
+  return createBingClient({
+    mode: "oauth",
     userId: connection.connectedByUserId,
     bingAccountId: connection.bingAccountId ?? undefined,
   });
-  return { connection, client };
 }
 
 /** Aggregated query/page report from Bing's sampled GetQueryStats and
@@ -337,7 +413,7 @@ async function resolveOauthClient(projectId: string): Promise<{
 async function getQueryReport(input: {
   projectId: string;
 }): Promise<BingQueryReportResult> {
-  const { connection, client } = await resolveOauthClient(input.projectId);
+  const { connection, client } = await resolveClient(input.projectId);
   const [queryRows, pageRows] = await Promise.all([
     client.getQueryStats(connection.siteUrl),
     client.getPageStats(connection.siteUrl),
@@ -364,7 +440,7 @@ async function getPageQueries(input: {
   pageUrl: string;
   queries: BingAggregateRow[];
 }> {
-  const { connection, client } = await resolveOauthClient(input.projectId);
+  const { connection, client } = await resolveClient(input.projectId);
   const rows = await client.getPageQueryStats(
     connection.siteUrl,
     input.pageUrl,
@@ -383,7 +459,7 @@ async function getCrawlStats(input: { projectId: string }): Promise<{
   siteUrl: string;
   rows: BingCrawlStatsRow[];
 }> {
-  const { connection, client } = await resolveOauthClient(input.projectId);
+  const { connection, client } = await resolveClient(input.projectId);
   const rows = await client.getCrawlStats(connection.siteUrl);
   return {
     siteUrl: connection.siteUrl,
@@ -399,7 +475,9 @@ export const BingService = {
   getConnection,
   userHasGrant,
   listSitesForUserWithGrantStatus,
+  listSitesForApiKey,
   setSite,
+  setSiteWithApiKey,
   disconnect,
   getPerformance,
   getQueryReport,

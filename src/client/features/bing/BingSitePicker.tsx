@@ -44,6 +44,7 @@ export function BingSitePicker({
   saving,
   onRetry,
   onReconnect,
+  onUseApiKey,
   secondaryAction,
 }: {
   loading: boolean;
@@ -55,6 +56,9 @@ export function BingSitePicker({
   saving: boolean;
   onRetry: () => void;
   onReconnect: () => void;
+  /** Escape hatch shown wherever OAuth has failed: Bing's account-wide API key
+   *  is a separate credential path that survives an OAuth outage. */
+  onUseApiKey?: () => void;
   secondaryAction?: SecondaryAction;
 }) {
   if (loading) {
@@ -71,13 +75,24 @@ export function BingSitePicker({
         <p className="text-sm text-error">
           Couldn't load your Bing Webmaster sites.
         </p>
-        <button
-          type="button"
-          className="btn btn-ghost btn-sm"
-          onClick={onRetry}
-        >
-          Try again
-        </button>
+        <div className="flex flex-wrap items-center gap-1">
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            onClick={onRetry}
+          >
+            Try again
+          </button>
+          {onUseApiKey ? (
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={onUseApiKey}
+            >
+              Use an API key instead
+            </button>
+          ) : null}
+        </div>
       </div>
     );
   }
@@ -99,6 +114,15 @@ export function BingSitePicker({
           <BingGlyph className="size-[18px]" />
           Reconnect with Bing
         </button>
+        {onUseApiKey ? (
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            onClick={onUseApiKey}
+          >
+            Use an API key instead
+          </button>
+        ) : null}
       </div>
     );
   }

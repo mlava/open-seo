@@ -218,6 +218,13 @@
       "when": 1786055858807,
       "tag": "0030_opposite_valeria_richards",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1786520363085,
+      "tag": "0031_chilly_the_call",
+      "breakpoints": true
     }
   ]
 }

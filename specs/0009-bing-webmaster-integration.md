@@ -57,22 +57,47 @@ a `cloudflare_access` deployment 2026-07-25. The redirect URI is
 `{origin}/api/bing/oauth/callback`; Bing permits one per registered client, so
 each environment needs its own.
 
-An API-key mode is planned but **not implemented in this change**. Its
-remaining use is local development: Bing rejects `localhost` redirect URIs
-outright, so a dev server cannot complete an OAuth flow at all without a
-public tunnel. When it lands the key will be stored encrypted at rest with the
-same `symmetricEncrypt`/`BETTER_AUTH_SECRET` approach, in a dedicated column —
-not in the `account` table, whose refresh machinery does not apply to a
-non-expiring key. Today `bing_connections.auth_mode` is always written
-`"oauth"`; the column exists so that lane needs no migration, and
-`getPerformance` rejects any `"api_key"` row rather than silently building an
-OAuth client for it.
+**API-key mode (added 2026-08-12).** Bing's account-wide API key, from the
+same Settings → API Access page, is a second credential lane. It was deferred
+as a local-development convenience — Bing rejects `localhost` redirect URIs, so
+a dev server cannot complete an OAuth flow without a public tunnel — and became
+load bearing when Bing started rejecting valid OAuth tokens outright with
+`400 ErrorCode 18 InvalidToken`, first intermittently and then completely.
+Microsoft's own guidance on the reported OAuth defects is to use the API key
+until they are fixed.
+
+The key is stored encrypted at rest in `bing_connections.api_key_encrypted`
+with `symmetricEncrypt` under `BETTER_AUTH_SECRET` — the same key protecting
+the OAuth tokens — and deliberately not in the `account` table, whose refresh
+machinery does not apply to a non-expiring credential. Unlike the token
+columns it is not gated on `account.encryptOAuthTokens`: a Bing key grants full
+account access and never expires, so it is always encrypted.
+
+`auth_mode` now discriminates a live union rather than reserving a lane.
+`createBingClient` takes `{ mode: "oauth", userId, bingAccountId }` or
+`{ mode: "api_key", apiKey }`; the key travels as an `?apikey=` query
+parameter appended by hand, because re-serialising the query string can
+re-encode `siteUrl`, which Bing matches byte-for-byte. Every method behaves
+identically across modes except `getConnectedEmail`, which returns null under
+`api_key` — the key carries no identity claim and Bing exposes no userinfo
+endpoint. For the same reason an `api_key` row stores a null `bingAccountId`
+and a null `connectedAccountEmail`.
+
+An `api_key` row whose key is missing or will not decrypt is rejected rather
+than falling back to OAuth, which would call Bing as whoever happens to be in
+`connected_by_user_id`.
+
+Connecting takes two steps so nothing is stored until the key is proven: the
+key lists sites (Bing has no validate-key endpoint, so a bad key surfaces as
+its own `ErrorCode 3 InvalidApiKey`), then the chosen verified site is saved
+along with the encrypted key.
 
 **Scoping.** `bing_connections` maps one verified site to one project, unique
 per project, mirroring `gsc_connections`: `projectId`, `organizationId`,
-`siteUrl`, `connectedByUserId`, `bingAccountId` (the `webmasteruid`),
-`connectedAccountEmail`, `authMode`. Mirrored across `src/db/` and
-`src/db/pg/`, with migrations for both dialects.
+`siteUrl`, `connectedByUserId`, `bingAccountId` (the `webmasteruid`, null in
+api_key mode), `connectedAccountEmail`, `authMode`, `apiKeyEncrypted`.
+Mirrored across `src/db/` and `src/db/pg/`, with migrations for both
+dialects.
 
 **Surface.** Bing gets its own page — daily clicks and impressions in v1, with
 top queries, top pages and crawl issues left for later — rather than a source
@@ -200,10 +225,6 @@ impressions (PR #4).
 
 Still genuinely future:
 
-- **API-key connection mode** — `bing_connections.auth_mode = "api_key"` is
-  reserved but unimplemented. It is the local-dev/self-hosted lane (Bing
-  rejects localhost redirect URIs) and becomes the PRIMARY path if the
-  refresh-token re-check ever shows Bing rotating tokens.
 - **URL submission** — `SubmitUrl`/`SubmitUrlBatch` need `webmaster.manage`
   and re-consent on every grant. IndexNow (key file, no OAuth, also covers
   Yandex/Seznam/Naver) is the better-shaped alternative if submission is

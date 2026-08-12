@@ -224,23 +224,43 @@ export function resetBingRetryCircuit(): void {
   recordBingSuccess();
 }
 
+/** How a call proves who it is. Bing takes an OAuth bearer token in a header
+ *  or an account-wide API key as a query param, and nothing else — sending the
+ *  token as `?access_token=` is rejected as `InvalidApiKey` (probed
+ *  2026-08-12), as is a lowercase `bearer` scheme. */
+type BingAuth = { bearerToken: string } | { apiKey: string };
+
+/** Appends by hand rather than via URL/searchParams: re-serialising the query
+ *  can re-encode `siteUrl`, and Bing matches that value byte-for-byte.
+ *
+ *  The key lands in the URL, so this string must never be logged. Nothing here
+ *  puts a URL in an error or a log line — keep it that way. */
+function withApiKey(url: string, apiKey: string): string {
+  return `${url}${url.includes("?") ? "&" : "?"}apikey=${encodeURIComponent(apiKey)}`;
+}
+
 /** One attempt: perform the call, map HTTP errors, then unwrap and return the
  *  `d` payload. */
 async function sendBingRequest(
   url: string,
-  token: string,
+  auth: BingAuth,
   init?: { method?: string; body?: unknown },
 ): Promise<unknown> {
   const hasBody = init?.body !== undefined;
-  const response = await fetch(url, {
-    method: init?.method ?? "GET",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: "application/json",
-      ...(hasBody ? { "Content-Type": "application/json" } : {}),
+  const response = await fetch(
+    "apiKey" in auth ? withApiKey(url, auth.apiKey) : url,
+    {
+      method: init?.method ?? "GET",
+      headers: {
+        ...("bearerToken" in auth
+          ? { Authorization: `Bearer ${auth.bearerToken}` }
+          : {}),
+        Accept: "application/json",
+        ...(hasBody ? { "Content-Type": "application/json" } : {}),
+      },
+      body: hasBody ? JSON.stringify(init?.body) : undefined,
     },
-    body: hasBody ? JSON.stringify(init?.body) : undefined,
-  });
+  );
   if (!response.ok) {
     const body = await response.text().catch(() => "");
     throw new BingApiError(
@@ -343,15 +363,26 @@ const bingSiteSchema = z.looseObject({
   DnsVerificationCode: z.string().nullish(),
 });
 
+/**
+ * How the caller authenticates to Bing. OAuth mints (and refreshes) an access
+ * token from the connector's stored bing-webmaster grant; api_key uses Bing's
+ * account-wide key verbatim. Every method behaves identically either way — the
+ * one exception is `getConnectedEmail`, which has no token to read a claim
+ * from and returns null under api_key.
+ */
+export type BingClientCredentials =
+  | { mode: "oauth"; userId: string; bingAccountId?: string }
+  | { mode: "api_key"; apiKey: string };
+
 /** Free Bing Webmaster Tools client, modelled on createGscClient. It does NOT
- *  meter credits — Bing reads are first-party and free. Access tokens are
- *  minted (and refreshed) by Better Auth from the connector's stored
- *  bing-webmaster grant and sent as a Bearer header. */
-export function createBingClient(opts: {
-  userId: string;
-  bingAccountId?: string;
-}) {
+ *  meter credits — Bing reads are first-party and free. */
+export function createBingClient(opts: BingClientCredentials) {
   async function getToken(): Promise<string> {
+    if (opts.mode !== "oauth") {
+      throw new BingTokenError(
+        "This Bing connection uses an API key, which carries no access token.",
+      );
+    }
     let result: { accessToken?: string } | undefined;
     try {
       // Headerless call: getAccessToken trusts body.userId when no request
@@ -377,19 +408,22 @@ export function createBingClient(opts: {
     return result.accessToken;
   }
 
-  /** Perform the call, retrying Bing's transient answers on the same token,
-   *  then return the unwrapped `d` payload. Callers validate the payload shape
-   *  with zod. The token is minted once: a retry is for Bing flapping, not for
-   *  a credential problem, and re-minting per attempt would spend a subrequest
-   *  to get the identical token back. */
+  /** Perform the call, retrying Bing's transient answers on the same
+   *  credential, then return the unwrapped `d` payload. Callers validate the
+   *  payload shape with zod. Under OAuth the token is minted once: a retry is
+   *  for Bing flapping, not for a credential problem, and re-minting per
+   *  attempt would spend a subrequest to get the identical token back. */
   async function request(
     url: string,
     init?: { method?: string; body?: unknown },
   ): Promise<unknown> {
-    const token = await getToken();
+    const auth: BingAuth =
+      opts.mode === "api_key"
+        ? { apiKey: opts.apiKey }
+        : { bearerToken: await getToken() };
     for (let attempt = 0; ; attempt++) {
       try {
-        const payload = await sendBingRequest(url, token, init);
+        const payload = await sendBingRequest(url, auth, init);
         recordBingSuccess();
         return payload;
       } catch (error) {
@@ -410,8 +444,10 @@ export function createBingClient(opts: {
     /** The connected Bing account's email. Bing publishes no userinfo
      *  endpoint, so unlike GSC this is read from a claim on the access token
      *  rather than fetched — no network call beyond minting the token. Returns
-     *  null when the token carries no email claim. */
+     *  null when the token carries no email claim, and always under api_key,
+     *  which has no token and no other endpoint exposing the identity. */
     async getConnectedEmail(): Promise<string | null> {
+      if (opts.mode === "api_key") return null;
       const claims = decodeBingAccessToken(await getToken());
       return claims?.webmasteremail ?? null;
     },

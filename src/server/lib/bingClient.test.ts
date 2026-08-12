@@ -61,7 +61,7 @@ describe("bingClient", () => {
       }),
     );
     const { createBingClient } = await import("./bingClient");
-    const sites = await createBingClient({ userId: "u1" }).listSites();
+    const sites = await createBingClient({ mode: "oauth", userId: "u1" }).listSites();
 
     expect(sites).toEqual([
       {
@@ -90,6 +90,7 @@ describe("bingClient", () => {
     const { createBingClient } = await import("./bingClient");
 
     await createBingClient({
+      mode: "oauth",
       userId: "u1",
       bingAccountId: "webmaster-uid-a",
     }).listSites();
@@ -107,7 +108,7 @@ describe("bingClient", () => {
     mocks.fetch.mockResolvedValue(jsonResponse({ d: [] }));
     const { createBingClient } = await import("./bingClient");
 
-    await createBingClient({ userId: "u1" }).listSites();
+    await createBingClient({ mode: "oauth", userId: "u1" }).listSites();
 
     expect(mocks.getAccessToken).toHaveBeenCalledWith({
       body: { providerId: "bing-webmaster", userId: "u1" },
@@ -118,7 +119,7 @@ describe("bingClient", () => {
     mocks.fetch.mockResolvedValue(jsonResponse({ notD: [] }));
     const { createBingClient, BingApiError } = await import("./bingClient");
     await expect(
-      createBingClient({ userId: "u1" }).listSites(),
+      createBingClient({ mode: "oauth", userId: "u1" }).listSites(),
     ).rejects.toBeInstanceOf(BingApiError);
   });
 
@@ -139,6 +140,7 @@ describe("bingClient", () => {
     );
     const { createBingClient } = await import("./bingClient");
     const rows = await createBingClient({
+      mode: "oauth",
       userId: "u1",
     }).getRankAndTrafficStats("https://example.com/");
 
@@ -157,7 +159,7 @@ describe("bingClient", () => {
   it("maps 401 to a reconnect-flavoured BingApiError", async () => {
     mocks.fetch.mockResolvedValue(jsonResponse({ error: "unauthorized" }, 401));
     const { createBingClient, BingApiError } = await import("./bingClient");
-    const error = await createBingClient({ userId: "u1" })
+    const error = await createBingClient({ mode: "oauth", userId: "u1" })
       .listSites()
       .catch((caught: unknown) => caught);
 
@@ -170,7 +172,7 @@ describe("bingClient", () => {
   it("maps 403 to a reconnect-flavoured BingApiError", async () => {
     mocks.fetch.mockResolvedValue(jsonResponse({ error: "forbidden" }, 403));
     const { createBingClient, BingApiError } = await import("./bingClient");
-    const error = await createBingClient({ userId: "u1" })
+    const error = await createBingClient({ mode: "oauth", userId: "u1" })
       .listSites()
       .catch((caught: unknown) => caught);
 
@@ -184,8 +186,49 @@ describe("bingClient", () => {
     mocks.fetch.mockResolvedValue(jsonResponse({ error: "slow down" }, 429));
     const { createBingClient } = await import("./bingClient");
     await expect(
-      createBingClient({ userId: "u1" }).listSites(),
+      createBingClient({ mode: "oauth", userId: "u1" }).listSites(),
     ).rejects.toMatchObject({ status: 429 });
+  });
+
+  describe("api_key mode", () => {
+    it("sends the key as a query param and no Authorization header", async () => {
+      mocks.fetch.mockResolvedValue(jsonResponse({ d: [] }));
+      const { createBingClient } = await import("./bingClient");
+
+      await createBingClient({ mode: "api_key", apiKey: "k3y" }).listSites();
+
+      const [url, init] = mocks.fetch.mock.calls[0];
+      expect(url).toBe(
+        "https://ssl.bing.com/webmaster/api.svc/json/GetUserSites?apikey=k3y",
+      );
+      expect(init?.headers).not.toHaveProperty("Authorization");
+      // No grant to read, so nothing should be minted.
+      expect(mocks.getAccessToken).not.toHaveBeenCalled();
+    });
+
+    it("appends the key without disturbing an encoded siteUrl", async () => {
+      mocks.fetch.mockResolvedValue(jsonResponse({ d: [] }));
+      const { createBingClient } = await import("./bingClient");
+
+      await createBingClient({
+        mode: "api_key",
+        apiKey: "k/3+y",
+      }).getRankAndTrafficStats("https://example.com/");
+
+      // Bing matches siteUrl byte-for-byte, so its encoding must survive
+      // verbatim while the key itself is escaped.
+      expect(mocks.fetch.mock.calls[0][0]).toBe(
+        "https://ssl.bing.com/webmaster/api.svc/json/GetRankAndTrafficStats?siteUrl=https%3A%2F%2Fexample.com%2F&apikey=k%2F3%2By",
+      );
+    });
+
+    it("reports no connected email — a key carries no identity", async () => {
+      const { createBingClient } = await import("./bingClient");
+      await expect(
+        createBingClient({ mode: "api_key", apiKey: "k3y" }).getConnectedEmail(),
+      ).resolves.toBeNull();
+      expect(mocks.fetch).not.toHaveBeenCalled();
+    });
   });
 
   describe("InvalidToken retries", () => {
@@ -209,7 +252,7 @@ describe("bingClient", () => {
         .mockResolvedValueOnce(jsonResponse({ d: [] }));
       const { createBingClient } = await import("./bingClient");
 
-      const sites = createBingClient({ userId: "u1" }).listSites();
+      const sites = createBingClient({ mode: "oauth", userId: "u1" }).listSites();
       await vi.runAllTimersAsync();
 
       await expect(sites).resolves.toEqual([]);
@@ -224,7 +267,7 @@ describe("bingClient", () => {
       mocks.fetch.mockImplementation(async () => invalidToken());
       const { createBingClient } = await import("./bingClient");
 
-      const sites = createBingClient({ userId: "u1" }).listSites();
+      const sites = createBingClient({ mode: "oauth", userId: "u1" }).listSites();
       // Assert before advancing: the rejection lands mid-ladder, and an
       // unhandled one would fail the run.
       const settled = expect(sites).rejects.toMatchObject({
@@ -243,7 +286,7 @@ describe("bingClient", () => {
         .mockResolvedValueOnce(jsonResponse({ d: [] }));
       const { createBingClient } = await import("./bingClient");
 
-      const sites = createBingClient({ userId: "u1" }).listSites();
+      const sites = createBingClient({ mode: "oauth", userId: "u1" }).listSites();
       await vi.runAllTimersAsync();
 
       await expect(sites).resolves.toEqual([]);
@@ -257,7 +300,7 @@ describe("bingClient", () => {
       const { createBingClient } = await import("./bingClient");
 
       await expect(
-        createBingClient({ userId: "u1" }).listSites(),
+        createBingClient({ mode: "oauth", userId: "u1" }).listSites(),
       ).rejects.toMatchObject({ status: 400, errorCode: 3 });
       expect(mocks.fetch).toHaveBeenCalledTimes(1);
     });
@@ -265,7 +308,7 @@ describe("bingClient", () => {
     it("caps the cost when a whole page load fails together", async () => {
       mocks.fetch.mockImplementation(async () => invalidToken());
       const { createBingClient } = await import("./bingClient");
-      const client = createBingClient({ userId: "u1" });
+      const client = createBingClient({ mode: "oauth", userId: "u1" });
 
       // The Bing performance page fires three calls in parallel. Unbounded that
       // is 3 full ladders; the breaker has to stop it well short.
@@ -292,7 +335,7 @@ describe("bingClient", () => {
     it("restores the ladder once Bing answers again", async () => {
       mocks.fetch.mockImplementation(async () => invalidToken());
       const { createBingClient } = await import("./bingClient");
-      const client = createBingClient({ userId: "u1" });
+      const client = createBingClient({ mode: "oauth", userId: "u1" });
 
       const tripped = Promise.all([
         client.listSites().catch(() => "failed"),
@@ -319,7 +362,7 @@ describe("bingClient", () => {
       const { createBingClient } = await import("./bingClient");
 
       await expect(
-        createBingClient({ userId: "u1" }).listSites(),
+        createBingClient({ mode: "oauth", userId: "u1" }).listSites(),
       ).rejects.toBeInstanceOf(Error);
       expect(mocks.fetch).toHaveBeenCalledTimes(1);
     });
@@ -329,7 +372,7 @@ describe("bingClient", () => {
     mocks.getAccessToken.mockRejectedValue(new Error("revoked"));
     const { createBingClient, BingTokenError } = await import("./bingClient");
     await expect(
-      createBingClient({ userId: "u1" }).listSites(),
+      createBingClient({ mode: "oauth", userId: "u1" }).listSites(),
     ).rejects.toBeInstanceOf(BingTokenError);
   });
 
@@ -337,7 +380,7 @@ describe("bingClient", () => {
     mocks.getAccessToken.mockResolvedValue({});
     const { createBingClient, BingTokenError } = await import("./bingClient");
     await expect(
-      createBingClient({ userId: "u1" }).listSites(),
+      createBingClient({ mode: "oauth", userId: "u1" }).listSites(),
     ).rejects.toBeInstanceOf(BingTokenError);
   });
 
@@ -368,7 +411,7 @@ describe("bingClient", () => {
         }),
       );
       const { createBingClient } = await import("./bingClient");
-      const rows = await createBingClient({ userId: "u1" }).getCrawlStats(
+      const rows = await createBingClient({ mode: "oauth", userId: "u1" }).getCrawlStats(
         "https://example.com/",
       );
 
@@ -394,7 +437,7 @@ describe("bingClient", () => {
       mocks.fetch.mockResolvedValue(jsonResponse({ d: null }));
       const { createBingClient } = await import("./bingClient");
       await expect(
-        createBingClient({ userId: "u1" }).getCrawlStats(
+        createBingClient({ mode: "oauth", userId: "u1" }).getCrawlStats(
           "https://example.com/",
         ),
       ).resolves.toEqual([]);
@@ -415,7 +458,7 @@ describe("bingClient", () => {
     it("encodes the siteUrl and maps sampled query rows, key from Query", async () => {
       mocks.fetch.mockResolvedValue(jsonResponse({ d: [sampleRow] }));
       const { createBingClient } = await import("./bingClient");
-      const rows = await createBingClient({ userId: "u1" }).getQueryStats(
+      const rows = await createBingClient({ mode: "oauth", userId: "u1" }).getQueryStats(
         "https://example.com/",
       );
 
@@ -440,7 +483,7 @@ describe("bingClient", () => {
         }),
       );
       const { createBingClient } = await import("./bingClient");
-      const rows = await createBingClient({ userId: "u1" }).getPageStats(
+      const rows = await createBingClient({ mode: "oauth", userId: "u1" }).getPageStats(
         "https://example.com/",
       );
 
@@ -453,7 +496,7 @@ describe("bingClient", () => {
     it("getPageQueryStats passes the page as the `page` query param", async () => {
       mocks.fetch.mockResolvedValue(jsonResponse({ d: [sampleRow] }));
       const { createBingClient } = await import("./bingClient");
-      const rows = await createBingClient({ userId: "u1" }).getPageQueryStats(
+      const rows = await createBingClient({ mode: "oauth", userId: "u1" }).getPageQueryStats(
         "https://example.com/",
         "https://example.com/pricing?x=1",
       );
@@ -468,7 +511,7 @@ describe("bingClient", () => {
       mocks.fetch.mockResolvedValue(jsonResponse({ d: null }));
       const { createBingClient } = await import("./bingClient");
       await expect(
-        createBingClient({ userId: "u1" }).getQueryStats(
+        createBingClient({ mode: "oauth", userId: "u1" }).getQueryStats(
           "https://example.com/",
         ),
       ).resolves.toEqual([]);
@@ -478,7 +521,7 @@ describe("bingClient", () => {
       mocks.fetch.mockResolvedValue(jsonResponse({ notD: [] }));
       const { createBingClient, BingApiError } = await import("./bingClient");
       await expect(
-        createBingClient({ userId: "u1" }).getPageStats("https://example.com/"),
+        createBingClient({ mode: "oauth", userId: "u1" }).getPageStats("https://example.com/"),
       ).rejects.toBeInstanceOf(BingApiError);
     });
   });
@@ -502,7 +545,7 @@ describe("bingClient", () => {
       );
       const { createBingClient } = await import("./bingClient");
 
-      const info = await createBingClient({ userId: "u1" }).getUrlInfo(
+      const info = await createBingClient({ mode: "oauth", userId: "u1" }).getUrlInfo(
         "https://example.com/",
         "https://example.com/pricing",
       );
@@ -540,7 +583,7 @@ describe("bingClient", () => {
       );
       const { createBingClient } = await import("./bingClient");
 
-      const info = await createBingClient({ userId: "u1" }).getUrlInfo(
+      const info = await createBingClient({ mode: "oauth", userId: "u1" }).getUrlInfo(
         "https://example.com/",
         "https://example.com/never-seen",
       );
@@ -564,7 +607,7 @@ describe("bingClient", () => {
       const { createBingClient } = await import("./bingClient");
 
       await expect(
-        createBingClient({ userId: "u1" }).getConnectedEmail(),
+        createBingClient({ mode: "oauth", userId: "u1" }).getConnectedEmail(),
       ).resolves.toBe("owner@example.com");
       // Bing has no userinfo endpoint — nothing should be fetched.
       expect(mocks.fetch).not.toHaveBeenCalled();
@@ -577,7 +620,7 @@ describe("bingClient", () => {
       const { createBingClient } = await import("./bingClient");
 
       await expect(
-        createBingClient({ userId: "u1" }).getConnectedEmail(),
+        createBingClient({ mode: "oauth", userId: "u1" }).getConnectedEmail(),
       ).resolves.toBeNull();
     });
 
@@ -586,7 +629,7 @@ describe("bingClient", () => {
       const { createBingClient } = await import("./bingClient");
 
       await expect(
-        createBingClient({ userId: "u1" }).getConnectedEmail(),
+        createBingClient({ mode: "oauth", userId: "u1" }).getConnectedEmail(),
       ).resolves.toBeNull();
     });
   });
