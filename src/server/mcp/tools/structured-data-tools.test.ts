@@ -1,7 +1,5 @@
-import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { ToolExtra } from "@/server/mcp/context";
-import { MCP_AUTH_CONTEXT_PROP } from "@/server/mcp/context";
+import { makeToolContext } from "./tool-test-support";
 
 const mocks = vi.hoisted(() => ({
   getProjectForOrganization: vi.fn(),
@@ -18,30 +16,7 @@ vi.mock("@/server/lib/scrape", () => ({
   readPageHtml: mocks.readPageHtml,
 }));
 
-const authContext = {
-  userId: "user_123",
-  userEmail: "alice@example.com",
-  organizationId: "org_123",
-  clientId: "client_123",
-  scopes: ["mcp"],
-  audience: "https://open-seo.test/mcp",
-  subject: "user_123",
-  baseUrl: "https://open-seo.test",
-};
-
-const toolExtra: ToolExtra = {
-  signal: new AbortController().signal,
-  requestId: 1,
-  sendNotification: vi.fn(),
-  sendRequest: vi.fn(),
-  authInfo: {
-    token: "token",
-    clientId: "client_123",
-    scopes: ["mcp"],
-    resource: new URL("https://open-seo.test/mcp"),
-    extra: { [MCP_AUTH_CONTEXT_PROP]: authContext },
-  } satisfies AuthInfo,
-};
+const toolContext = makeToolContext();
 
 /** Narrow the tool's content union down to its leading text block. */
 function toolText(result: { content: readonly unknown[] }): string {
@@ -72,7 +47,7 @@ async function callTool(args: {
 }) {
   return await validateStructuredDataTool.handler(
     { projectId: PROJECT_ID, ...args },
-    toolExtra,
+    toolContext,
   );
 }
 
@@ -127,7 +102,7 @@ describe("validate_structured_data", () => {
     expect(toolText(result)).toContain("This is not a pass");
     // Also in structuredContent: a caller diffing `types` against `features`
     // would otherwise have to read the omission as a pass.
-    expect(result.structuredContent?.notChecked).toEqual(["Person"]);
+    expect(result.structuredContent).toMatchObject({ notChecked: ["Person"] });
   });
 
   it("fetches and validates a live URL", async () => {

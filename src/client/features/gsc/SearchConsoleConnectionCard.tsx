@@ -10,7 +10,7 @@ import {
   SitePicker,
   type GscSiteSelection,
 } from "@/client/features/gsc/SitePicker";
-import { startGscLink } from "@/client/features/gsc/startGscLink";
+import { startGoogleLink } from "@/client/features/integrations/startGoogleLink";
 import {
   ConnectedState,
   IntegrationCard,
@@ -138,7 +138,7 @@ export function SearchConsoleConnectionCard({
     onError: (error) => toast.error(getStandardErrorMessage(error)),
   });
 
-  const handleConnect = () => void startGscLink(window.location.href);
+  const handleConnect = () => void startGoogleLink("gsc", window.location.href);
 
   return (
     <IntegrationCard

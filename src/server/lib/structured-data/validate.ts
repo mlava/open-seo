@@ -16,7 +16,6 @@
  * value that is not a member, a missing required property.
  */
 import {
-  collectJsonLdScripts,
   collectJsonLdScriptsFromHtml,
   unwrapScriptText,
   type JsonLdScript,
@@ -40,7 +39,6 @@ import {
   supersededBy,
 } from "./vocabulary";
 import type { ValidationResult } from "./types";
-import type * as cheerio from "cheerio";
 
 /** Far beyond any real markup; guards against pathological nesting. */
 const MAX_DEPTH = 20;
@@ -343,7 +341,11 @@ function toResult(
   };
 }
 
-function validateJsonLdScripts(scripts: JsonLdScript[]): ValidationResult {
+/** For callers that collected the scripts themselves — notably the site-audit
+ *  page analyzer, whose streaming tokenizer never builds a document. */
+export function validateJsonLdScripts(
+  scripts: JsonLdScript[],
+): ValidationResult {
   const collector = new FindingCollector();
   for (const script of scripts) {
     collector.forScript(script.index);
@@ -352,13 +354,6 @@ function validateJsonLdScripts(scripts: JsonLdScript[]): ValidationResult {
     }
   }
   return toResult(collector, scripts.length);
-}
-
-/** For the site-audit crawler, which already holds a loaded document. */
-export function validateCheerioDocument(
-  $: cheerio.CheerioAPI,
-): ValidationResult {
-  return validateJsonLdScripts(collectJsonLdScripts($));
 }
 
 /** Async because parsing a raw HTML string needs cheerio, which is loaded on

@@ -4,6 +4,7 @@ import type { BacklinksOverviewResult } from "@/server/features/backlinks/servic
 import { AuditRepository } from "@/server/features/audit/repositories/AuditRepository";
 import { getIssueTypePageCountsForAudit } from "@/server/features/audit/repositories/auditSummaryQueries";
 import { BacklinkSnapshotRepository } from "@/server/features/dashboard/repositories/BacklinkSnapshotRepository";
+import { Ga4ConnectionRepository } from "@/server/features/ga4/repositories/Ga4ConnectionRepository";
 import { GscConnectionRepository } from "@/server/features/gsc/repositories/GscConnectionRepository";
 import { RankTrackingRepository } from "@/server/features/rank-tracking/repositories/RankTrackingRepository";
 import { getLatestResults } from "@/server/features/rank-tracking/services/rankTrackingResults";
@@ -31,6 +32,11 @@ const MAX_CONFIGS_FOR_OVERVIEW = 5;
 
 export type DashboardActivation = {
   domain: string | null;
+  ga4: {
+    connected: boolean;
+    propertyDisplayName: string | null;
+    cardDismissedAt: string | null;
+  };
   gsc: { connected: boolean; siteUrl: string | null };
   mcp: {
     authorizedAt: string | null;
@@ -89,7 +95,8 @@ async function getActivation(input: {
   organizationId: string;
   domain: string | null;
 }): Promise<DashboardActivation> {
-  const [gsc, orgActivation, projectActivation] = await Promise.all([
+  const [ga4, gsc, orgActivation, projectActivation] = await Promise.all([
+    Ga4ConnectionRepository.getByProjectId(input.projectId),
     GscConnectionRepository.getByProjectId(input.projectId),
     ActivationRepository.getOrganizationActivation(input.organizationId),
     ActivationRepository.getProjectActivation(input.projectId),
@@ -97,6 +104,11 @@ async function getActivation(input: {
 
   return {
     domain: input.domain,
+    ga4: {
+      connected: ga4 !== null,
+      propertyDisplayName: ga4?.propertyDisplayName ?? null,
+      cardDismissedAt: projectActivation?.ga4CardDismissedAt ?? null,
+    },
     gsc: { connected: gsc !== null, siteUrl: gsc?.siteUrl ?? null },
     mcp: {
       authorizedAt: orgActivation?.firstMcpAuthorizedAt ?? null,
@@ -142,7 +154,7 @@ async function getRankSummary(
   for (const result of results) {
     summary.trackedKeywords += result.rows.length;
     if (
-      result.run &&
+      result.run?.lastCheckedAt &&
       (!summary.lastCheckedAt ||
         result.run.lastCheckedAt > summary.lastCheckedAt)
     ) {

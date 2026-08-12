@@ -137,7 +137,11 @@ export function BingApiKeyPanel({
             {listMutation.isPending ? "Checking…" : "Check key"}
           </button>
         )}
-        <button type="button" className="btn btn-ghost btn-sm" onClick={onCancel}>
+        <button
+          type="button"
+          className="btn btn-ghost btn-sm"
+          onClick={onCancel}
+        >
           Cancel
         </button>
       </div>

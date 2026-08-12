@@ -78,19 +78,17 @@ export function BingAiOverviewPanel({ projectId }: { projectId: string }) {
                 </tr>
               </thead>
               <tbody>
-                {days
-                  .toReversed()
-                  .map((day) => (
-                    <tr key={day.id}>
-                      <td className="tabular-nums">{day.date}</td>
-                      <td className="text-right tabular-nums">
-                        {day.citations.toLocaleString()}
-                      </td>
-                      <td className="text-right tabular-nums">
-                        {day.citedPages.toLocaleString()}
-                      </td>
-                    </tr>
-                  ))}
+                {days.toReversed().map((day) => (
+                  <tr key={day.id}>
+                    <td className="tabular-nums">{day.date}</td>
+                    <td className="text-right tabular-nums">
+                      {day.citations.toLocaleString()}
+                    </td>
+                    <td className="text-right tabular-nums">
+                      {day.citedPages.toLocaleString()}
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>

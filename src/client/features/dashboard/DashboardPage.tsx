@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ChevronLeft, ChevronRight, Check } from "lucide-react";
 import { captureClientEvent } from "@/client/lib/posthog";
+import { Ga4ConnectCard } from "@/client/features/dashboard/Ga4ConnectCard";
 import {
   computeNextStep,
   isStepDone,
@@ -17,6 +18,7 @@ import {
 import { BingCard } from "@/client/features/dashboard/BingCard";
 import { RevenueCard } from "@/client/features/dashboard/RevenueCard";
 import { McpConnectCard } from "@/client/features/dashboard/McpConnectCard";
+import { WorkspaceMergeBanner } from "@/client/features/dashboard/WorkspaceMergeBanner";
 import { getStandardErrorMessage } from "@/client/lib/error-messages";
 import type { DashboardActivation } from "@/server/features/dashboard/services/DashboardService";
 import {
@@ -26,6 +28,7 @@ import {
   refreshDashboardBacklinkSnapshot,
 } from "@/serverFunctions/dashboard";
 import { setProjectDomain } from "@/serverFunctions/projects";
+import { GA4_OAUTH_APP_PENDING } from "@/shared/ga4";
 import type { DashboardHeroStep } from "@/types/schemas/dashboard";
 
 const HERO_COPY: Record<
@@ -299,16 +302,21 @@ export function DashboardPage({ projectId }: { projectId: string }) {
 
   const showBacklinks = activation.domain !== null;
   const gscConnected = activation.gsc.connected;
+  const ga4Connected = activation.ga4.connected;
 
   return (
     <div className="px-4 py-4 pb-24 md:px-6 md:py-6 md:pb-8">
       <div className="mx-auto flex max-w-5xl flex-col gap-5">
         <h1 className="text-2xl font-semibold">Dashboard</h1>
 
+        <WorkspaceMergeBanner />
+
         <OnboardingChecklist projectId={projectId} activation={activation} />
 
         {/* Revenue spans the full width, then fixed half-width positions:
-          GSC | Bing, then Backlinks | Site audit. The MCP pitch leads the
+          GSC | Bing, then Backlinks | Site audit, with GA4 trailing. The
+          positions are pinned deliberately — an earlier data-first sort made
+          the grid reshuffle under you as data arrived. The MCP pitch leads the
           grid during onboarding and shifts it until dismissed or used. */}
         <RevenueCard projectId={projectId} />
 
@@ -330,6 +338,10 @@ export function DashboardPage({ projectId }: { projectId: string }) {
             projectId={projectId}
             audit={overview?.audit ?? null}
           />
+          {!GA4_OAUTH_APP_PENDING &&
+          (ga4Connected || !activation.ga4.cardDismissedAt) ? (
+            <Ga4ConnectCard projectId={projectId} connected={ga4Connected} />
+          ) : null}
         </div>
       </div>
     </div>

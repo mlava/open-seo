@@ -1,7 +1,5 @@
-import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { ToolExtra } from "@/server/mcp/context";
-import { MCP_AUTH_CONTEXT_PROP } from "@/server/mcp/context";
+import { makeToolContext } from "./tool-test-support";
 import type { PagespeedSnapshotLike } from "@/shared/pagespeed";
 
 const mocks = vi.hoisted(() => ({
@@ -31,30 +29,7 @@ vi.mock("@/server/features/pagespeed/services/PagespeedService", () => ({
   PagespeedNotConfiguredError,
 }));
 
-const authContext = {
-  userId: "user_123",
-  userEmail: "alice@example.com",
-  organizationId: "org_123",
-  clientId: "client_123",
-  scopes: ["mcp"],
-  audience: "https://open-seo.test/mcp",
-  subject: "user_123",
-  baseUrl: "https://open-seo.test",
-};
-
-const toolExtra: ToolExtra = {
-  signal: new AbortController().signal,
-  requestId: 1,
-  sendNotification: vi.fn(),
-  sendRequest: vi.fn(),
-  authInfo: {
-    token: "token",
-    clientId: "client_123",
-    scopes: ["mcp"],
-    resource: new URL("https://open-seo.test/mcp"),
-    extra: { [MCP_AUTH_CONTEXT_PROP]: authContext },
-  } satisfies AuthInfo,
-};
+const toolContext = makeToolContext();
 
 /** Narrow the tool's content union down to its leading text block. */
 function toolText(result: { content: readonly unknown[] }): string {
@@ -173,7 +148,7 @@ describe("get_pagespeed_insights", () => {
 
     const result = await getPagespeedInsightsTool.handler(
       { projectId: "project_1", strategy: "mobile", history: 1 },
-      toolExtra,
+      toolContext,
     );
 
     expect(result.structuredContent).toMatchObject({
@@ -195,7 +170,7 @@ describe("get_pagespeed_insights", () => {
 
     const result = await getPagespeedInsightsTool.handler(
       { projectId: "project_1", strategy: "mobile", history: 1 },
-      toolExtra,
+      toolContext,
     );
 
     expect(toolText(result)).toContain("SLOW (origin)");
@@ -206,7 +181,7 @@ describe("get_pagespeed_insights", () => {
 
     const result = await getPagespeedInsightsTool.handler(
       { projectId: "project_1", strategy: "desktop", history: 1 },
-      toolExtra,
+      toolContext,
     );
 
     expect(result.structuredContent).toMatchObject({ rowCount: 1 });
@@ -223,7 +198,7 @@ describe("get_pagespeed_insights", () => {
         url: "/pricing",
         history: 1,
       },
-      toolExtra,
+      toolContext,
     );
 
     expect(result.structuredContent).toMatchObject({ rowCount: 1 });
@@ -248,7 +223,7 @@ describe("get_pagespeed_insights", () => {
 
     const result = await getPagespeedInsightsTool.handler(
       { projectId: "project_1", strategy: "mobile", history: 1 },
-      toolExtra,
+      toolContext,
     );
 
     expect(toolText(result)).toContain("run failed");
@@ -260,7 +235,7 @@ describe("get_pagespeed_insights", () => {
 
     const result = await getPagespeedInsightsTool.handler(
       { projectId: "project_1", strategy: "mobile", history: 1 },
-      toolExtra,
+      toolContext,
     );
 
     expect(result.structuredContent).toMatchObject({
@@ -277,7 +252,7 @@ describe("get_pagespeed_insights", () => {
 
     const result = await getPagespeedInsightsTool.handler(
       { projectId: "project_1", strategy: "mobile", history: 1 },
-      toolExtra,
+      toolContext,
     );
 
     expect(result.structuredContent).toMatchObject({ ok: true, rowCount: 0 });
@@ -289,7 +264,7 @@ describe("get_pagespeed_insights", () => {
 
     const result = await getPagespeedInsightsTool.handler(
       { projectId: "project_1", strategy: "mobile", history: 5 },
-      toolExtra,
+      toolContext,
     );
 
     // u1 has two mobile runs, u2 has one.
@@ -302,7 +277,7 @@ describe("get_pagespeed_insights", () => {
 
     const result = await getPagespeedInsightsTool.handler(
       { projectId: "project_1", strategy: "mobile", history: 1 },
-      toolExtra,
+      toolContext,
     );
 
     const text = toolText(result);
@@ -366,7 +341,7 @@ describe("get_pagespeed_issues", () => {
 
     const result = await getPagespeedIssuesTool.handler(
       { projectId: "project_1", strategy: "mobile", limit: 30 },
-      toolExtra,
+      toolContext,
     );
 
     expect(result.structuredContent).toMatchObject({ ok: true, rowCount: 2 });
@@ -398,7 +373,7 @@ describe("get_pagespeed_issues", () => {
         category: "seo",
         limit: 30,
       },
-      toolExtra,
+      toolContext,
     );
 
     expect(result.structuredContent).toMatchObject({ rowCount: 1 });
@@ -420,7 +395,7 @@ describe("get_pagespeed_issues", () => {
 
     const result = await getPagespeedIssuesTool.handler(
       { projectId: "project_1", strategy: "mobile", limit: 30 },
-      toolExtra,
+      toolContext,
     );
 
     expect(result.structuredContent).toMatchObject({
@@ -435,7 +410,7 @@ describe("get_pagespeed_issues", () => {
 
     const result = await getPagespeedIssuesTool.handler(
       { projectId: "project_1", strategy: "mobile", limit: 30 },
-      toolExtra,
+      toolContext,
     );
 
     expect(result.structuredContent).toMatchObject({

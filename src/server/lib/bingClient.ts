@@ -205,7 +205,10 @@ function recordBingSuccess(): void {
 
 function recordTransientBingFailure(): void {
   consecutiveTransientFailures += 1;
-  if (consecutiveTransientFailures >= BING_CIRCUIT_THRESHOLD && !circuitOpenedAt) {
+  if (
+    consecutiveTransientFailures >= BING_CIRCUIT_THRESHOLD &&
+    !circuitOpenedAt
+  ) {
     circuitOpenedAt = Date.now();
   }
 }

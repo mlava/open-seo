@@ -1,7 +1,5 @@
-import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { ToolExtra } from "@/server/mcp/context";
-import { MCP_AUTH_CONTEXT_PROP } from "@/server/mcp/context";
+import { makeToolContext } from "./tool-test-support";
 
 const mocks = vi.hoisted(() => ({
   getProjectForOrganization: vi.fn(),
@@ -22,30 +20,7 @@ vi.mock("@/server/features/bing/services/BingAiCitationService", () => ({
   BingAiCitationService: mocks.BingAiCitationService,
 }));
 
-const authContext = {
-  userId: "user_123",
-  userEmail: "alice@example.com",
-  organizationId: "org_123",
-  clientId: "client_123",
-  scopes: ["mcp"],
-  audience: "https://open-seo.test/mcp",
-  subject: "user_123",
-  baseUrl: "https://open-seo.test",
-};
-
-const toolExtra: ToolExtra = {
-  signal: new AbortController().signal,
-  requestId: 1,
-  sendNotification: vi.fn(),
-  sendRequest: vi.fn(),
-  authInfo: {
-    token: "token",
-    clientId: "client_123",
-    scopes: ["mcp"],
-    resource: new URL("https://open-seo.test/mcp"),
-    extra: { [MCP_AUTH_CONTEXT_PROP]: authContext },
-  } satisfies AuthInfo,
-};
+const toolContext = makeToolContext();
 
 describe("get_bing_ai_citations", () => {
   beforeEach(() => {
@@ -69,7 +44,7 @@ describe("get_bing_ai_citations", () => {
 
     const result = await getBingAiCitationsTool.handler(
       { projectId: "project_1", reportType: "overview", limit: 100 },
-      toolExtra,
+      toolContext,
     );
 
     expect(result.structuredContent).toMatchObject({
@@ -93,7 +68,7 @@ describe("get_bing_ai_citations", () => {
 
     const result = await getBingAiCitationsTool.handler(
       { projectId: "project_1", reportType: "overview", limit: 100 },
-      toolExtra,
+      toolContext,
     );
 
     expect(result.structuredContent).toMatchObject({ ok: true, rowCount: 0 });
@@ -128,7 +103,7 @@ describe("get_bing_ai_citations", () => {
 
     const result = await getBingAiCitationsTool.handler(
       { projectId: "project_1", reportType: "pages", limit: 100 },
-      toolExtra,
+      toolContext,
     );
 
     expect(
@@ -164,7 +139,7 @@ describe("get_bing_ai_citations", () => {
         snapshotId: "older_snapshot",
         limit: 100,
       },
-      toolExtra,
+      toolContext,
     );
 
     expect(
@@ -182,7 +157,7 @@ describe("get_bing_ai_citations", () => {
 
     const result = await getBingAiCitationsTool.handler(
       { projectId: "project_1", reportType: "queries", limit: 100 },
-      toolExtra,
+      toolContext,
     );
 
     expect(result.structuredContent).toMatchObject({
@@ -218,7 +193,7 @@ describe("get_bing_ai_citations", () => {
 
     const result = await getBingAiCitationsTool.handler(
       { projectId: "project_1", reportType: "pages", limit: 1 },
-      toolExtra,
+      toolContext,
     );
 
     expect(result.structuredContent).toMatchObject({ ok: true, rowCount: 1 });

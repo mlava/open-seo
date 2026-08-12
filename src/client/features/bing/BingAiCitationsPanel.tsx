@@ -19,8 +19,8 @@ export function BingAiCitationsPanel({ projectId }: { projectId: string }) {
   return (
     <div className="p-4">
       <p className="mb-4 text-sm text-base-content/60">
-        Bing has no API for AI citations — export the CSV from Webmaster
-        Tools → Reports → AI performance and upload it here.
+        Bing has no API for AI citations — export the CSV from Webmaster Tools →
+        Reports → AI performance and upload it here.
       </p>
       <div role="tablist" className="tabs tabs-boxed mb-4 w-fit">
         <TabButton

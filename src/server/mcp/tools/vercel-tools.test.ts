@@ -1,7 +1,5 @@
-import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { ToolExtra } from "@/server/mcp/context";
-import { MCP_AUTH_CONTEXT_PROP } from "@/server/mcp/context";
+import { makeToolContext } from "./tool-test-support";
 
 const mocks = vi.hoisted(() => ({
   getProjectForOrganization: vi.fn(),
@@ -49,30 +47,7 @@ vi.mock("@/server/lib/vercelAnalytics", () => ({
   VercelApiError,
 }));
 
-const authContext = {
-  userId: "user_123",
-  userEmail: "alice@example.com",
-  organizationId: "org_123",
-  clientId: "client_123",
-  scopes: ["mcp"],
-  audience: "https://open-seo.test/mcp",
-  subject: "user_123",
-  baseUrl: "https://open-seo.test",
-};
-
-const toolExtra: ToolExtra = {
-  signal: new AbortController().signal,
-  requestId: 1,
-  sendNotification: vi.fn(),
-  sendRequest: vi.fn(),
-  authInfo: {
-    token: "token",
-    clientId: "client_123",
-    scopes: ["mcp"],
-    resource: new URL("https://open-seo.test/mcp"),
-    extra: { [MCP_AUTH_CONTEXT_PROP]: authContext },
-  } satisfies AuthInfo,
-};
+const toolContext = makeToolContext();
 
 const report = {
   vercelProjectName: "scholar-sidekick",
@@ -111,7 +86,7 @@ describe("get_vercel_traffic", () => {
 
     const result = await getVercelTrafficTool.handler(
       { projectId: "project_1", dimension: "referrer", limit: 25 },
-      toolExtra,
+      toolContext,
     );
 
     expect(result.structuredContent).toMatchObject({
@@ -134,7 +109,7 @@ describe("get_vercel_traffic", () => {
 
     const pages = await getVercelTrafficTool.handler(
       { projectId: "project_1", dimension: "page", limit: 25 },
-      toolExtra,
+      toolContext,
     );
     const pagesText = pages.content[0];
     expect(pagesText.type === "text" && pagesText.text).toContain(
@@ -143,7 +118,7 @@ describe("get_vercel_traffic", () => {
 
     const days = await getVercelTrafficTool.handler(
       { projectId: "project_1", dimension: "day", limit: 25 },
-      toolExtra,
+      toolContext,
     );
     const daysText = days.content[0];
     expect(daysText.type === "text" && daysText.text).toContain("2026-07-12");
@@ -154,7 +129,7 @@ describe("get_vercel_traffic", () => {
 
     const result = await getVercelTrafficTool.handler(
       { projectId: "project_1", dimension: "referrer", limit: 1 },
-      toolExtra,
+      toolContext,
     );
 
     expect(result.structuredContent).toMatchObject({ ok: true, rowCount: 1 });
@@ -166,7 +141,7 @@ describe("get_vercel_traffic", () => {
 
     const result = await getVercelTrafficTool.handler(
       { projectId: "project_1", dimension: "referrer", limit: 25 },
-      toolExtra,
+      toolContext,
     );
 
     expect(result.structuredContent).toMatchObject({
@@ -181,7 +156,7 @@ describe("get_vercel_traffic", () => {
 
     const result = await getVercelTrafficTool.handler(
       { projectId: "project_1", dimension: "referrer", limit: 25 },
-      toolExtra,
+      toolContext,
     );
 
     expect(result.structuredContent).toMatchObject({
@@ -195,7 +170,7 @@ describe("get_vercel_traffic", () => {
 
     const result = await getVercelTrafficTool.handler(
       { projectId: "project_1", dimension: "event", limit: 25 },
-      toolExtra,
+      toolContext,
     );
 
     expect(result.structuredContent).toMatchObject({ ok: true, rowCount: 2 });
@@ -226,7 +201,7 @@ describe("get_vercel_traffic", () => {
         eventName: "audit_completed",
         limit: 25,
       },
-      toolExtra,
+      toolContext,
     );
 
     expect(mocks.getEventTrend).toHaveBeenCalledWith({
@@ -247,7 +222,7 @@ describe("get_vercel_traffic", () => {
     await expect(
       getVercelTrafficTool.handler(
         { projectId: "project_1", dimension: "referrer", limit: 25 },
-        toolExtra,
+        toolContext,
       ),
     ).rejects.toThrow("database exploded");
   });

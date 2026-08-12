@@ -1,7 +1,5 @@
-import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { ToolExtra } from "@/server/mcp/context";
-import { MCP_AUTH_CONTEXT_PROP } from "@/server/mcp/context";
+import { makeToolContext } from "./tool-test-support";
 
 const mocks = vi.hoisted(() => ({
   getProjectForOrganization: vi.fn(),
@@ -59,30 +57,7 @@ vi.mock("@/server/lib/bingClient", () => ({
   describeBingFailure: (error: unknown) => String(error),
 }));
 
-const authContext = {
-  userId: "user_123",
-  userEmail: "alice@example.com",
-  organizationId: "org_123",
-  clientId: "client_123",
-  scopes: ["mcp"],
-  audience: "https://open-seo.test/mcp",
-  subject: "user_123",
-  baseUrl: "https://open-seo.test",
-};
-
-const toolExtra: ToolExtra = {
-  signal: new AbortController().signal,
-  requestId: 1,
-  sendNotification: vi.fn(),
-  sendRequest: vi.fn(),
-  authInfo: {
-    token: "token",
-    clientId: "client_123",
-    scopes: ["mcp"],
-    resource: new URL("https://open-seo.test/mcp"),
-    extra: { [MCP_AUTH_CONTEXT_PROP]: authContext },
-  } satisfies AuthInfo,
-};
+const toolContext = makeToolContext();
 
 describe("get_bing_queries", () => {
   const report = {
@@ -140,7 +115,7 @@ describe("get_bing_queries", () => {
         strikingDistanceOnly: false,
         limit: 100,
       },
-      toolExtra,
+      toolContext,
     );
 
     expect(result.structuredContent).toMatchObject({
@@ -167,7 +142,7 @@ describe("get_bing_queries", () => {
         strikingDistanceOnly: false,
         limit: 100,
       },
-      toolExtra,
+      toolContext,
     );
 
     expect(result.structuredContent).toMatchObject({ ok: true, rowCount: 1 });
@@ -190,7 +165,7 @@ describe("get_bing_queries", () => {
         strikingDistanceOnly: true,
         limit: 100,
       },
-      toolExtra,
+      toolContext,
     );
 
     expect(result.structuredContent).toMatchObject({ ok: true, rowCount: 1 });
@@ -209,7 +184,7 @@ describe("get_bing_queries", () => {
         strikingDistanceOnly: false,
         limit: 1,
       },
-      toolExtra,
+      toolContext,
     );
 
     expect(result.structuredContent).toMatchObject({ ok: true, rowCount: 1 });
@@ -241,7 +216,7 @@ describe("get_bing_queries", () => {
         pageUrl: "https://example.com/pricing",
         limit: 100,
       },
-      toolExtra,
+      toolContext,
     );
 
     expect(mocks.BingService.getPageQueries).toHaveBeenCalledWith({
@@ -273,7 +248,7 @@ describe("get_bing_queries", () => {
         pageUrl: "https://example.com/new-page",
         limit: 100,
       },
-      toolExtra,
+      toolContext,
     );
 
     expect(result.structuredContent).toMatchObject({ ok: true, rowCount: 0 });
@@ -294,7 +269,7 @@ describe("get_bing_queries", () => {
         strikingDistanceOnly: false,
         limit: 100,
       },
-      toolExtra,
+      toolContext,
     );
 
     expect(result.structuredContent).toMatchObject({
@@ -316,7 +291,7 @@ describe("get_bing_queries", () => {
         strikingDistanceOnly: false,
         limit: 100,
       },
-      toolExtra,
+      toolContext,
     );
 
     expect(result.structuredContent).toMatchObject({

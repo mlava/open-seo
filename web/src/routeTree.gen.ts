@@ -22,9 +22,12 @@ import { Route as DocsSplatRouteImport } from './routes/docs/$'
 import { Route as BlogsSplatRouteImport } from './routes/blogs/$'
 import { Route as ApiSubscribeRouteImport } from './routes/api/subscribe'
 import { Route as ApiEventRouteImport } from './routes/api/event'
+import { Route as ApiBacklinkCheckRouteImport } from './routes/api/backlink-check'
+import { Route as MarketingRoadmapRouteImport } from './routes/_marketing/roadmap'
 import { Route as MarketingPricingRouteImport } from './routes/_marketing/pricing'
 import { Route as MarketingOpenSourceSeoRouteImport } from './routes/_marketing/open-source-seo'
 import { Route as MarketingGoogleSearchConsoleMcpRouteImport } from './routes/_marketing/google-search-console-mcp'
+import { Route as MarketingBacklinkCheckerRouteImport } from './routes/_marketing/backlink-checker'
 import { Route as MarketingFeaturesIndexRouteImport } from './routes/_marketing/features/index'
 import { Route as MarketingFeaturesSiteAuditRouteImport } from './routes/_marketing/features/site-audit'
 import { Route as MarketingFeaturesSavedKeywordsRouteImport } from './routes/_marketing/features/saved-keywords'
@@ -32,13 +35,18 @@ import { Route as MarketingFeaturesRankTrackingRouteImport } from './routes/_mar
 import { Route as MarketingFeaturesMcpRouteImport } from './routes/_marketing/features/mcp'
 import { Route as MarketingFeaturesKeywordResearchRouteImport } from './routes/_marketing/features/keyword-research'
 import { Route as MarketingFeaturesDomainOverviewRouteImport } from './routes/_marketing/features/domain-overview'
+import { Route as MarketingFeaturesBacklinksRouteImport } from './routes/_marketing/features/backlinks'
 import { Route as MarketingFeaturesBacklinkCheckerRouteImport } from './routes/_marketing/features/backlink-checker'
 import { Route as MarketingFeaturesAiSearchPromptsRouteImport } from './routes/_marketing/features/ai-search-prompts'
 import { Route as MarketingFeaturesAiBrandVisibilityRouteImport } from './routes/_marketing/features/ai-brand-visibility'
 import { Route as MarketingLibraryKeywordResearchIndexRouteImport } from './routes/_marketing/library/keyword-research/index'
 import { Route as MarketingLibraryKeywordResearchSeedFromConversationRouteImport } from './routes/_marketing/library/keyword-research/seed-from-conversation'
 import { Route as MarketingLibraryKeywordResearchSearchIntentMappingRouteImport } from './routes/_marketing/library/keyword-research/search-intent-mapping'
+import { Route as MarketingLibraryKeywordResearchPositioningToDemandRouteImport } from './routes/_marketing/library/keyword-research/positioning-to-demand'
+import { Route as MarketingLibraryKeywordResearchOpportunitySizingForecastingRouteImport } from './routes/_marketing/library/keyword-research/opportunity-sizing-forecasting'
 import { Route as MarketingLibraryKeywordResearchLongTailQuestionMiningRouteImport } from './routes/_marketing/library/keyword-research/long-tail-question-mining'
+import { Route as MarketingLibraryKeywordResearchIntentBeyondGoogleRouteImport } from './routes/_marketing/library/keyword-research/intent-beyond-google'
+import { Route as MarketingLibraryKeywordResearchGscProgrammaticDiscoveryRouteImport } from './routes/_marketing/library/keyword-research/gsc-programmatic-discovery'
 import { Route as MarketingLibraryKeywordResearchClusterTopicalHubsRouteImport } from './routes/_marketing/library/keyword-research/cluster-topical-hubs'
 
 const TermsAndConditionsRoute = TermsAndConditionsRouteImport.update({
@@ -105,6 +113,16 @@ const ApiEventRoute = ApiEventRouteImport.update({
   path: '/api/event',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiBacklinkCheckRoute = ApiBacklinkCheckRouteImport.update({
+  id: '/api/backlink-check',
+  path: '/api/backlink-check',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MarketingRoadmapRoute = MarketingRoadmapRouteImport.update({
+  id: '/roadmap',
+  path: '/roadmap',
+  getParentRoute: () => MarketingRoute,
+} as any)
 const MarketingPricingRoute = MarketingPricingRouteImport.update({
   id: '/pricing',
   path: '/pricing',
@@ -119,6 +137,12 @@ const MarketingGoogleSearchConsoleMcpRoute =
   MarketingGoogleSearchConsoleMcpRouteImport.update({
     id: '/google-search-console-mcp',
     path: '/google-search-console-mcp',
+    getParentRoute: () => MarketingRoute,
+  } as any)
+const MarketingBacklinkCheckerRoute =
+  MarketingBacklinkCheckerRouteImport.update({
+    id: '/backlink-checker',
+    path: '/backlink-checker',
     getParentRoute: () => MarketingRoute,
   } as any)
 const MarketingFeaturesIndexRoute = MarketingFeaturesIndexRouteImport.update({
@@ -161,6 +185,12 @@ const MarketingFeaturesDomainOverviewRoute =
     path: '/features/domain-overview',
     getParentRoute: () => MarketingRoute,
   } as any)
+const MarketingFeaturesBacklinksRoute =
+  MarketingFeaturesBacklinksRouteImport.update({
+    id: '/features/backlinks',
+    path: '/features/backlinks',
+    getParentRoute: () => MarketingRoute,
+  } as any)
 const MarketingFeaturesBacklinkCheckerRoute =
   MarketingFeaturesBacklinkCheckerRouteImport.update({
     id: '/features/backlink-checker',
@@ -197,10 +227,36 @@ const MarketingLibraryKeywordResearchSearchIntentMappingRoute =
     path: '/library/keyword-research/search-intent-mapping',
     getParentRoute: () => MarketingRoute,
   } as any)
+const MarketingLibraryKeywordResearchPositioningToDemandRoute =
+  MarketingLibraryKeywordResearchPositioningToDemandRouteImport.update({
+    id: '/library/keyword-research/positioning-to-demand',
+    path: '/library/keyword-research/positioning-to-demand',
+    getParentRoute: () => MarketingRoute,
+  } as any)
+const MarketingLibraryKeywordResearchOpportunitySizingForecastingRoute =
+  MarketingLibraryKeywordResearchOpportunitySizingForecastingRouteImport.update(
+    {
+      id: '/library/keyword-research/opportunity-sizing-forecasting',
+      path: '/library/keyword-research/opportunity-sizing-forecasting',
+      getParentRoute: () => MarketingRoute,
+    } as any,
+  )
 const MarketingLibraryKeywordResearchLongTailQuestionMiningRoute =
   MarketingLibraryKeywordResearchLongTailQuestionMiningRouteImport.update({
     id: '/library/keyword-research/long-tail-question-mining',
     path: '/library/keyword-research/long-tail-question-mining',
+    getParentRoute: () => MarketingRoute,
+  } as any)
+const MarketingLibraryKeywordResearchIntentBeyondGoogleRoute =
+  MarketingLibraryKeywordResearchIntentBeyondGoogleRouteImport.update({
+    id: '/library/keyword-research/intent-beyond-google',
+    path: '/library/keyword-research/intent-beyond-google',
+    getParentRoute: () => MarketingRoute,
+  } as any)
+const MarketingLibraryKeywordResearchGscProgrammaticDiscoveryRoute =
+  MarketingLibraryKeywordResearchGscProgrammaticDiscoveryRouteImport.update({
+    id: '/library/keyword-research/gsc-programmatic-discovery',
+    path: '/library/keyword-research/gsc-programmatic-discovery',
     getParentRoute: () => MarketingRoute,
   } as any)
 const MarketingLibraryKeywordResearchClusterTopicalHubsRoute =
@@ -214,9 +270,12 @@ export interface FileRoutesByFullPath {
   '/': typeof MarketingIndexRoute
   '/privacy': typeof PrivacyRoute
   '/terms-and-conditions': typeof TermsAndConditionsRoute
+  '/backlink-checker': typeof MarketingBacklinkCheckerRoute
   '/google-search-console-mcp': typeof MarketingGoogleSearchConsoleMcpRoute
   '/open-source-seo': typeof MarketingOpenSourceSeoRoute
   '/pricing': typeof MarketingPricingRoute
+  '/roadmap': typeof MarketingRoadmapRoute
+  '/api/backlink-check': typeof ApiBacklinkCheckRoute
   '/api/event': typeof ApiEventRoute
   '/api/subscribe': typeof ApiSubscribeRoute
   '/blogs/$': typeof BlogsSplatRoute
@@ -229,6 +288,7 @@ export interface FileRoutesByFullPath {
   '/features/ai-brand-visibility': typeof MarketingFeaturesAiBrandVisibilityRoute
   '/features/ai-search-prompts': typeof MarketingFeaturesAiSearchPromptsRoute
   '/features/backlink-checker': typeof MarketingFeaturesBacklinkCheckerRoute
+  '/features/backlinks': typeof MarketingFeaturesBacklinksRoute
   '/features/domain-overview': typeof MarketingFeaturesDomainOverviewRoute
   '/features/keyword-research': typeof MarketingFeaturesKeywordResearchRoute
   '/features/mcp': typeof MarketingFeaturesMcpRoute
@@ -237,7 +297,11 @@ export interface FileRoutesByFullPath {
   '/features/site-audit': typeof MarketingFeaturesSiteAuditRoute
   '/features/': typeof MarketingFeaturesIndexRoute
   '/library/keyword-research/cluster-topical-hubs': typeof MarketingLibraryKeywordResearchClusterTopicalHubsRoute
+  '/library/keyword-research/gsc-programmatic-discovery': typeof MarketingLibraryKeywordResearchGscProgrammaticDiscoveryRoute
+  '/library/keyword-research/intent-beyond-google': typeof MarketingLibraryKeywordResearchIntentBeyondGoogleRoute
   '/library/keyword-research/long-tail-question-mining': typeof MarketingLibraryKeywordResearchLongTailQuestionMiningRoute
+  '/library/keyword-research/opportunity-sizing-forecasting': typeof MarketingLibraryKeywordResearchOpportunitySizingForecastingRoute
+  '/library/keyword-research/positioning-to-demand': typeof MarketingLibraryKeywordResearchPositioningToDemandRoute
   '/library/keyword-research/search-intent-mapping': typeof MarketingLibraryKeywordResearchSearchIntentMappingRoute
   '/library/keyword-research/seed-from-conversation': typeof MarketingLibraryKeywordResearchSeedFromConversationRoute
   '/library/keyword-research/': typeof MarketingLibraryKeywordResearchIndexRoute
@@ -245,9 +309,12 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/privacy': typeof PrivacyRoute
   '/terms-and-conditions': typeof TermsAndConditionsRoute
+  '/backlink-checker': typeof MarketingBacklinkCheckerRoute
   '/google-search-console-mcp': typeof MarketingGoogleSearchConsoleMcpRoute
   '/open-source-seo': typeof MarketingOpenSourceSeoRoute
   '/pricing': typeof MarketingPricingRoute
+  '/roadmap': typeof MarketingRoadmapRoute
+  '/api/backlink-check': typeof ApiBacklinkCheckRoute
   '/api/event': typeof ApiEventRoute
   '/api/subscribe': typeof ApiSubscribeRoute
   '/blogs/$': typeof BlogsSplatRoute
@@ -261,6 +328,7 @@ export interface FileRoutesByTo {
   '/features/ai-brand-visibility': typeof MarketingFeaturesAiBrandVisibilityRoute
   '/features/ai-search-prompts': typeof MarketingFeaturesAiSearchPromptsRoute
   '/features/backlink-checker': typeof MarketingFeaturesBacklinkCheckerRoute
+  '/features/backlinks': typeof MarketingFeaturesBacklinksRoute
   '/features/domain-overview': typeof MarketingFeaturesDomainOverviewRoute
   '/features/keyword-research': typeof MarketingFeaturesKeywordResearchRoute
   '/features/mcp': typeof MarketingFeaturesMcpRoute
@@ -269,7 +337,11 @@ export interface FileRoutesByTo {
   '/features/site-audit': typeof MarketingFeaturesSiteAuditRoute
   '/features': typeof MarketingFeaturesIndexRoute
   '/library/keyword-research/cluster-topical-hubs': typeof MarketingLibraryKeywordResearchClusterTopicalHubsRoute
+  '/library/keyword-research/gsc-programmatic-discovery': typeof MarketingLibraryKeywordResearchGscProgrammaticDiscoveryRoute
+  '/library/keyword-research/intent-beyond-google': typeof MarketingLibraryKeywordResearchIntentBeyondGoogleRoute
   '/library/keyword-research/long-tail-question-mining': typeof MarketingLibraryKeywordResearchLongTailQuestionMiningRoute
+  '/library/keyword-research/opportunity-sizing-forecasting': typeof MarketingLibraryKeywordResearchOpportunitySizingForecastingRoute
+  '/library/keyword-research/positioning-to-demand': typeof MarketingLibraryKeywordResearchPositioningToDemandRoute
   '/library/keyword-research/search-intent-mapping': typeof MarketingLibraryKeywordResearchSearchIntentMappingRoute
   '/library/keyword-research/seed-from-conversation': typeof MarketingLibraryKeywordResearchSeedFromConversationRoute
   '/library/keyword-research': typeof MarketingLibraryKeywordResearchIndexRoute
@@ -279,9 +351,12 @@ export interface FileRoutesById {
   '/_marketing': typeof MarketingRouteWithChildren
   '/privacy': typeof PrivacyRoute
   '/terms-and-conditions': typeof TermsAndConditionsRoute
+  '/_marketing/backlink-checker': typeof MarketingBacklinkCheckerRoute
   '/_marketing/google-search-console-mcp': typeof MarketingGoogleSearchConsoleMcpRoute
   '/_marketing/open-source-seo': typeof MarketingOpenSourceSeoRoute
   '/_marketing/pricing': typeof MarketingPricingRoute
+  '/_marketing/roadmap': typeof MarketingRoadmapRoute
+  '/api/backlink-check': typeof ApiBacklinkCheckRoute
   '/api/event': typeof ApiEventRoute
   '/api/subscribe': typeof ApiSubscribeRoute
   '/blogs/$': typeof BlogsSplatRoute
@@ -295,6 +370,7 @@ export interface FileRoutesById {
   '/_marketing/features/ai-brand-visibility': typeof MarketingFeaturesAiBrandVisibilityRoute
   '/_marketing/features/ai-search-prompts': typeof MarketingFeaturesAiSearchPromptsRoute
   '/_marketing/features/backlink-checker': typeof MarketingFeaturesBacklinkCheckerRoute
+  '/_marketing/features/backlinks': typeof MarketingFeaturesBacklinksRoute
   '/_marketing/features/domain-overview': typeof MarketingFeaturesDomainOverviewRoute
   '/_marketing/features/keyword-research': typeof MarketingFeaturesKeywordResearchRoute
   '/_marketing/features/mcp': typeof MarketingFeaturesMcpRoute
@@ -303,7 +379,11 @@ export interface FileRoutesById {
   '/_marketing/features/site-audit': typeof MarketingFeaturesSiteAuditRoute
   '/_marketing/features/': typeof MarketingFeaturesIndexRoute
   '/_marketing/library/keyword-research/cluster-topical-hubs': typeof MarketingLibraryKeywordResearchClusterTopicalHubsRoute
+  '/_marketing/library/keyword-research/gsc-programmatic-discovery': typeof MarketingLibraryKeywordResearchGscProgrammaticDiscoveryRoute
+  '/_marketing/library/keyword-research/intent-beyond-google': typeof MarketingLibraryKeywordResearchIntentBeyondGoogleRoute
   '/_marketing/library/keyword-research/long-tail-question-mining': typeof MarketingLibraryKeywordResearchLongTailQuestionMiningRoute
+  '/_marketing/library/keyword-research/opportunity-sizing-forecasting': typeof MarketingLibraryKeywordResearchOpportunitySizingForecastingRoute
+  '/_marketing/library/keyword-research/positioning-to-demand': typeof MarketingLibraryKeywordResearchPositioningToDemandRoute
   '/_marketing/library/keyword-research/search-intent-mapping': typeof MarketingLibraryKeywordResearchSearchIntentMappingRoute
   '/_marketing/library/keyword-research/seed-from-conversation': typeof MarketingLibraryKeywordResearchSeedFromConversationRoute
   '/_marketing/library/keyword-research/': typeof MarketingLibraryKeywordResearchIndexRoute
@@ -314,9 +394,12 @@ export interface FileRouteTypes {
     | '/'
     | '/privacy'
     | '/terms-and-conditions'
+    | '/backlink-checker'
     | '/google-search-console-mcp'
     | '/open-source-seo'
     | '/pricing'
+    | '/roadmap'
+    | '/api/backlink-check'
     | '/api/event'
     | '/api/subscribe'
     | '/blogs/$'
@@ -329,6 +412,7 @@ export interface FileRouteTypes {
     | '/features/ai-brand-visibility'
     | '/features/ai-search-prompts'
     | '/features/backlink-checker'
+    | '/features/backlinks'
     | '/features/domain-overview'
     | '/features/keyword-research'
     | '/features/mcp'
@@ -337,7 +421,11 @@ export interface FileRouteTypes {
     | '/features/site-audit'
     | '/features/'
     | '/library/keyword-research/cluster-topical-hubs'
+    | '/library/keyword-research/gsc-programmatic-discovery'
+    | '/library/keyword-research/intent-beyond-google'
     | '/library/keyword-research/long-tail-question-mining'
+    | '/library/keyword-research/opportunity-sizing-forecasting'
+    | '/library/keyword-research/positioning-to-demand'
     | '/library/keyword-research/search-intent-mapping'
     | '/library/keyword-research/seed-from-conversation'
     | '/library/keyword-research/'
@@ -345,9 +433,12 @@ export interface FileRouteTypes {
   to:
     | '/privacy'
     | '/terms-and-conditions'
+    | '/backlink-checker'
     | '/google-search-console-mcp'
     | '/open-source-seo'
     | '/pricing'
+    | '/roadmap'
+    | '/api/backlink-check'
     | '/api/event'
     | '/api/subscribe'
     | '/blogs/$'
@@ -361,6 +452,7 @@ export interface FileRouteTypes {
     | '/features/ai-brand-visibility'
     | '/features/ai-search-prompts'
     | '/features/backlink-checker'
+    | '/features/backlinks'
     | '/features/domain-overview'
     | '/features/keyword-research'
     | '/features/mcp'
@@ -369,7 +461,11 @@ export interface FileRouteTypes {
     | '/features/site-audit'
     | '/features'
     | '/library/keyword-research/cluster-topical-hubs'
+    | '/library/keyword-research/gsc-programmatic-discovery'
+    | '/library/keyword-research/intent-beyond-google'
     | '/library/keyword-research/long-tail-question-mining'
+    | '/library/keyword-research/opportunity-sizing-forecasting'
+    | '/library/keyword-research/positioning-to-demand'
     | '/library/keyword-research/search-intent-mapping'
     | '/library/keyword-research/seed-from-conversation'
     | '/library/keyword-research'
@@ -378,9 +474,12 @@ export interface FileRouteTypes {
     | '/_marketing'
     | '/privacy'
     | '/terms-and-conditions'
+    | '/_marketing/backlink-checker'
     | '/_marketing/google-search-console-mcp'
     | '/_marketing/open-source-seo'
     | '/_marketing/pricing'
+    | '/_marketing/roadmap'
+    | '/api/backlink-check'
     | '/api/event'
     | '/api/subscribe'
     | '/blogs/$'
@@ -394,6 +493,7 @@ export interface FileRouteTypes {
     | '/_marketing/features/ai-brand-visibility'
     | '/_marketing/features/ai-search-prompts'
     | '/_marketing/features/backlink-checker'
+    | '/_marketing/features/backlinks'
     | '/_marketing/features/domain-overview'
     | '/_marketing/features/keyword-research'
     | '/_marketing/features/mcp'
@@ -402,7 +502,11 @@ export interface FileRouteTypes {
     | '/_marketing/features/site-audit'
     | '/_marketing/features/'
     | '/_marketing/library/keyword-research/cluster-topical-hubs'
+    | '/_marketing/library/keyword-research/gsc-programmatic-discovery'
+    | '/_marketing/library/keyword-research/intent-beyond-google'
     | '/_marketing/library/keyword-research/long-tail-question-mining'
+    | '/_marketing/library/keyword-research/opportunity-sizing-forecasting'
+    | '/_marketing/library/keyword-research/positioning-to-demand'
     | '/_marketing/library/keyword-research/search-intent-mapping'
     | '/_marketing/library/keyword-research/seed-from-conversation'
     | '/_marketing/library/keyword-research/'
@@ -412,6 +516,7 @@ export interface RootRouteChildren {
   MarketingRoute: typeof MarketingRouteWithChildren
   PrivacyRoute: typeof PrivacyRoute
   TermsAndConditionsRoute: typeof TermsAndConditionsRoute
+  ApiBacklinkCheckRoute: typeof ApiBacklinkCheckRoute
   ApiEventRoute: typeof ApiEventRoute
   ApiSubscribeRoute: typeof ApiSubscribeRoute
   BlogsSplatRoute: typeof BlogsSplatRoute
@@ -516,6 +621,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiEventRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/backlink-check': {
+      id: '/api/backlink-check'
+      path: '/api/backlink-check'
+      fullPath: '/api/backlink-check'
+      preLoaderRoute: typeof ApiBacklinkCheckRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_marketing/roadmap': {
+      id: '/_marketing/roadmap'
+      path: '/roadmap'
+      fullPath: '/roadmap'
+      preLoaderRoute: typeof MarketingRoadmapRouteImport
+      parentRoute: typeof MarketingRoute
+    }
     '/_marketing/pricing': {
       id: '/_marketing/pricing'
       path: '/pricing'
@@ -535,6 +654,13 @@ declare module '@tanstack/react-router' {
       path: '/google-search-console-mcp'
       fullPath: '/google-search-console-mcp'
       preLoaderRoute: typeof MarketingGoogleSearchConsoleMcpRouteImport
+      parentRoute: typeof MarketingRoute
+    }
+    '/_marketing/backlink-checker': {
+      id: '/_marketing/backlink-checker'
+      path: '/backlink-checker'
+      fullPath: '/backlink-checker'
+      preLoaderRoute: typeof MarketingBacklinkCheckerRouteImport
       parentRoute: typeof MarketingRoute
     }
     '/_marketing/features/': {
@@ -586,6 +712,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MarketingFeaturesDomainOverviewRouteImport
       parentRoute: typeof MarketingRoute
     }
+    '/_marketing/features/backlinks': {
+      id: '/_marketing/features/backlinks'
+      path: '/features/backlinks'
+      fullPath: '/features/backlinks'
+      preLoaderRoute: typeof MarketingFeaturesBacklinksRouteImport
+      parentRoute: typeof MarketingRoute
+    }
     '/_marketing/features/backlink-checker': {
       id: '/_marketing/features/backlink-checker'
       path: '/features/backlink-checker'
@@ -628,11 +761,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MarketingLibraryKeywordResearchSearchIntentMappingRouteImport
       parentRoute: typeof MarketingRoute
     }
+    '/_marketing/library/keyword-research/positioning-to-demand': {
+      id: '/_marketing/library/keyword-research/positioning-to-demand'
+      path: '/library/keyword-research/positioning-to-demand'
+      fullPath: '/library/keyword-research/positioning-to-demand'
+      preLoaderRoute: typeof MarketingLibraryKeywordResearchPositioningToDemandRouteImport
+      parentRoute: typeof MarketingRoute
+    }
+    '/_marketing/library/keyword-research/opportunity-sizing-forecasting': {
+      id: '/_marketing/library/keyword-research/opportunity-sizing-forecasting'
+      path: '/library/keyword-research/opportunity-sizing-forecasting'
+      fullPath: '/library/keyword-research/opportunity-sizing-forecasting'
+      preLoaderRoute: typeof MarketingLibraryKeywordResearchOpportunitySizingForecastingRouteImport
+      parentRoute: typeof MarketingRoute
+    }
     '/_marketing/library/keyword-research/long-tail-question-mining': {
       id: '/_marketing/library/keyword-research/long-tail-question-mining'
       path: '/library/keyword-research/long-tail-question-mining'
       fullPath: '/library/keyword-research/long-tail-question-mining'
       preLoaderRoute: typeof MarketingLibraryKeywordResearchLongTailQuestionMiningRouteImport
+      parentRoute: typeof MarketingRoute
+    }
+    '/_marketing/library/keyword-research/intent-beyond-google': {
+      id: '/_marketing/library/keyword-research/intent-beyond-google'
+      path: '/library/keyword-research/intent-beyond-google'
+      fullPath: '/library/keyword-research/intent-beyond-google'
+      preLoaderRoute: typeof MarketingLibraryKeywordResearchIntentBeyondGoogleRouteImport
+      parentRoute: typeof MarketingRoute
+    }
+    '/_marketing/library/keyword-research/gsc-programmatic-discovery': {
+      id: '/_marketing/library/keyword-research/gsc-programmatic-discovery'
+      path: '/library/keyword-research/gsc-programmatic-discovery'
+      fullPath: '/library/keyword-research/gsc-programmatic-discovery'
+      preLoaderRoute: typeof MarketingLibraryKeywordResearchGscProgrammaticDiscoveryRouteImport
       parentRoute: typeof MarketingRoute
     }
     '/_marketing/library/keyword-research/cluster-topical-hubs': {
@@ -646,13 +807,16 @@ declare module '@tanstack/react-router' {
 }
 
 interface MarketingRouteChildren {
+  MarketingBacklinkCheckerRoute: typeof MarketingBacklinkCheckerRoute
   MarketingGoogleSearchConsoleMcpRoute: typeof MarketingGoogleSearchConsoleMcpRoute
   MarketingOpenSourceSeoRoute: typeof MarketingOpenSourceSeoRoute
   MarketingPricingRoute: typeof MarketingPricingRoute
+  MarketingRoadmapRoute: typeof MarketingRoadmapRoute
   MarketingIndexRoute: typeof MarketingIndexRoute
   MarketingFeaturesAiBrandVisibilityRoute: typeof MarketingFeaturesAiBrandVisibilityRoute
   MarketingFeaturesAiSearchPromptsRoute: typeof MarketingFeaturesAiSearchPromptsRoute
   MarketingFeaturesBacklinkCheckerRoute: typeof MarketingFeaturesBacklinkCheckerRoute
+  MarketingFeaturesBacklinksRoute: typeof MarketingFeaturesBacklinksRoute
   MarketingFeaturesDomainOverviewRoute: typeof MarketingFeaturesDomainOverviewRoute
   MarketingFeaturesKeywordResearchRoute: typeof MarketingFeaturesKeywordResearchRoute
   MarketingFeaturesMcpRoute: typeof MarketingFeaturesMcpRoute
@@ -661,21 +825,28 @@ interface MarketingRouteChildren {
   MarketingFeaturesSiteAuditRoute: typeof MarketingFeaturesSiteAuditRoute
   MarketingFeaturesIndexRoute: typeof MarketingFeaturesIndexRoute
   MarketingLibraryKeywordResearchClusterTopicalHubsRoute: typeof MarketingLibraryKeywordResearchClusterTopicalHubsRoute
+  MarketingLibraryKeywordResearchGscProgrammaticDiscoveryRoute: typeof MarketingLibraryKeywordResearchGscProgrammaticDiscoveryRoute
+  MarketingLibraryKeywordResearchIntentBeyondGoogleRoute: typeof MarketingLibraryKeywordResearchIntentBeyondGoogleRoute
   MarketingLibraryKeywordResearchLongTailQuestionMiningRoute: typeof MarketingLibraryKeywordResearchLongTailQuestionMiningRoute
+  MarketingLibraryKeywordResearchOpportunitySizingForecastingRoute: typeof MarketingLibraryKeywordResearchOpportunitySizingForecastingRoute
+  MarketingLibraryKeywordResearchPositioningToDemandRoute: typeof MarketingLibraryKeywordResearchPositioningToDemandRoute
   MarketingLibraryKeywordResearchSearchIntentMappingRoute: typeof MarketingLibraryKeywordResearchSearchIntentMappingRoute
   MarketingLibraryKeywordResearchSeedFromConversationRoute: typeof MarketingLibraryKeywordResearchSeedFromConversationRoute
   MarketingLibraryKeywordResearchIndexRoute: typeof MarketingLibraryKeywordResearchIndexRoute
 }
 
 const MarketingRouteChildren: MarketingRouteChildren = {
+  MarketingBacklinkCheckerRoute: MarketingBacklinkCheckerRoute,
   MarketingGoogleSearchConsoleMcpRoute: MarketingGoogleSearchConsoleMcpRoute,
   MarketingOpenSourceSeoRoute: MarketingOpenSourceSeoRoute,
   MarketingPricingRoute: MarketingPricingRoute,
+  MarketingRoadmapRoute: MarketingRoadmapRoute,
   MarketingIndexRoute: MarketingIndexRoute,
   MarketingFeaturesAiBrandVisibilityRoute:
     MarketingFeaturesAiBrandVisibilityRoute,
   MarketingFeaturesAiSearchPromptsRoute: MarketingFeaturesAiSearchPromptsRoute,
   MarketingFeaturesBacklinkCheckerRoute: MarketingFeaturesBacklinkCheckerRoute,
+  MarketingFeaturesBacklinksRoute: MarketingFeaturesBacklinksRoute,
   MarketingFeaturesDomainOverviewRoute: MarketingFeaturesDomainOverviewRoute,
   MarketingFeaturesKeywordResearchRoute: MarketingFeaturesKeywordResearchRoute,
   MarketingFeaturesMcpRoute: MarketingFeaturesMcpRoute,
@@ -685,8 +856,16 @@ const MarketingRouteChildren: MarketingRouteChildren = {
   MarketingFeaturesIndexRoute: MarketingFeaturesIndexRoute,
   MarketingLibraryKeywordResearchClusterTopicalHubsRoute:
     MarketingLibraryKeywordResearchClusterTopicalHubsRoute,
+  MarketingLibraryKeywordResearchGscProgrammaticDiscoveryRoute:
+    MarketingLibraryKeywordResearchGscProgrammaticDiscoveryRoute,
+  MarketingLibraryKeywordResearchIntentBeyondGoogleRoute:
+    MarketingLibraryKeywordResearchIntentBeyondGoogleRoute,
   MarketingLibraryKeywordResearchLongTailQuestionMiningRoute:
     MarketingLibraryKeywordResearchLongTailQuestionMiningRoute,
+  MarketingLibraryKeywordResearchOpportunitySizingForecastingRoute:
+    MarketingLibraryKeywordResearchOpportunitySizingForecastingRoute,
+  MarketingLibraryKeywordResearchPositioningToDemandRoute:
+    MarketingLibraryKeywordResearchPositioningToDemandRoute,
   MarketingLibraryKeywordResearchSearchIntentMappingRoute:
     MarketingLibraryKeywordResearchSearchIntentMappingRoute,
   MarketingLibraryKeywordResearchSeedFromConversationRoute:
@@ -703,6 +882,7 @@ const rootRouteChildren: RootRouteChildren = {
   MarketingRoute: MarketingRouteWithChildren,
   PrivacyRoute: PrivacyRoute,
   TermsAndConditionsRoute: TermsAndConditionsRoute,
+  ApiBacklinkCheckRoute: ApiBacklinkCheckRoute,
   ApiEventRoute: ApiEventRoute,
   ApiSubscribeRoute: ApiSubscribeRoute,
   BlogsSplatRoute: BlogsSplatRoute,

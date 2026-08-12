@@ -61,7 +61,10 @@ describe("bingClient", () => {
       }),
     );
     const { createBingClient } = await import("./bingClient");
-    const sites = await createBingClient({ mode: "oauth", userId: "u1" }).listSites();
+    const sites = await createBingClient({
+      mode: "oauth",
+      userId: "u1",
+    }).listSites();
 
     expect(sites).toEqual([
       {
@@ -225,7 +228,10 @@ describe("bingClient", () => {
     it("reports no connected email — a key carries no identity", async () => {
       const { createBingClient } = await import("./bingClient");
       await expect(
-        createBingClient({ mode: "api_key", apiKey: "k3y" }).getConnectedEmail(),
+        createBingClient({
+          mode: "api_key",
+          apiKey: "k3y",
+        }).getConnectedEmail(),
       ).resolves.toBeNull();
       expect(mocks.fetch).not.toHaveBeenCalled();
     });
@@ -252,7 +258,10 @@ describe("bingClient", () => {
         .mockResolvedValueOnce(jsonResponse({ d: [] }));
       const { createBingClient } = await import("./bingClient");
 
-      const sites = createBingClient({ mode: "oauth", userId: "u1" }).listSites();
+      const sites = createBingClient({
+        mode: "oauth",
+        userId: "u1",
+      }).listSites();
       await vi.runAllTimersAsync();
 
       await expect(sites).resolves.toEqual([]);
@@ -267,7 +276,10 @@ describe("bingClient", () => {
       mocks.fetch.mockImplementation(async () => invalidToken());
       const { createBingClient } = await import("./bingClient");
 
-      const sites = createBingClient({ mode: "oauth", userId: "u1" }).listSites();
+      const sites = createBingClient({
+        mode: "oauth",
+        userId: "u1",
+      }).listSites();
       // Assert before advancing: the rejection lands mid-ladder, and an
       // unhandled one would fail the run.
       const settled = expect(sites).rejects.toMatchObject({
@@ -286,7 +298,10 @@ describe("bingClient", () => {
         .mockResolvedValueOnce(jsonResponse({ d: [] }));
       const { createBingClient } = await import("./bingClient");
 
-      const sites = createBingClient({ mode: "oauth", userId: "u1" }).listSites();
+      const sites = createBingClient({
+        mode: "oauth",
+        userId: "u1",
+      }).listSites();
       await vi.runAllTimersAsync();
 
       await expect(sites).resolves.toEqual([]);
@@ -411,9 +426,10 @@ describe("bingClient", () => {
         }),
       );
       const { createBingClient } = await import("./bingClient");
-      const rows = await createBingClient({ mode: "oauth", userId: "u1" }).getCrawlStats(
-        "https://example.com/",
-      );
+      const rows = await createBingClient({
+        mode: "oauth",
+        userId: "u1",
+      }).getCrawlStats("https://example.com/");
 
       expect(mocks.fetch.mock.calls[0][0]).toBe(
         "https://ssl.bing.com/webmaster/api.svc/json/GetCrawlStats?siteUrl=https%3A%2F%2Fexample.com%2F",
@@ -458,9 +474,10 @@ describe("bingClient", () => {
     it("encodes the siteUrl and maps sampled query rows, key from Query", async () => {
       mocks.fetch.mockResolvedValue(jsonResponse({ d: [sampleRow] }));
       const { createBingClient } = await import("./bingClient");
-      const rows = await createBingClient({ mode: "oauth", userId: "u1" }).getQueryStats(
-        "https://example.com/",
-      );
+      const rows = await createBingClient({
+        mode: "oauth",
+        userId: "u1",
+      }).getQueryStats("https://example.com/");
 
       expect(mocks.fetch.mock.calls[0][0]).toBe(
         "https://ssl.bing.com/webmaster/api.svc/json/GetQueryStats?siteUrl=https%3A%2F%2Fexample.com%2F",
@@ -483,9 +500,10 @@ describe("bingClient", () => {
         }),
       );
       const { createBingClient } = await import("./bingClient");
-      const rows = await createBingClient({ mode: "oauth", userId: "u1" }).getPageStats(
-        "https://example.com/",
-      );
+      const rows = await createBingClient({
+        mode: "oauth",
+        userId: "u1",
+      }).getPageStats("https://example.com/");
 
       expect(mocks.fetch.mock.calls[0][0]).toBe(
         "https://ssl.bing.com/webmaster/api.svc/json/GetPageStats?siteUrl=https%3A%2F%2Fexample.com%2F",
@@ -496,7 +514,10 @@ describe("bingClient", () => {
     it("getPageQueryStats passes the page as the `page` query param", async () => {
       mocks.fetch.mockResolvedValue(jsonResponse({ d: [sampleRow] }));
       const { createBingClient } = await import("./bingClient");
-      const rows = await createBingClient({ mode: "oauth", userId: "u1" }).getPageQueryStats(
+      const rows = await createBingClient({
+        mode: "oauth",
+        userId: "u1",
+      }).getPageQueryStats(
         "https://example.com/",
         "https://example.com/pricing?x=1",
       );
@@ -521,7 +542,9 @@ describe("bingClient", () => {
       mocks.fetch.mockResolvedValue(jsonResponse({ notD: [] }));
       const { createBingClient, BingApiError } = await import("./bingClient");
       await expect(
-        createBingClient({ mode: "oauth", userId: "u1" }).getPageStats("https://example.com/"),
+        createBingClient({ mode: "oauth", userId: "u1" }).getPageStats(
+          "https://example.com/",
+        ),
       ).rejects.toBeInstanceOf(BingApiError);
     });
   });
@@ -545,10 +568,10 @@ describe("bingClient", () => {
       );
       const { createBingClient } = await import("./bingClient");
 
-      const info = await createBingClient({ mode: "oauth", userId: "u1" }).getUrlInfo(
-        "https://example.com/",
-        "https://example.com/pricing",
-      );
+      const info = await createBingClient({
+        mode: "oauth",
+        userId: "u1",
+      }).getUrlInfo("https://example.com/", "https://example.com/pricing");
 
       expect(mocks.fetch.mock.calls[0][0]).toBe(
         "https://ssl.bing.com/webmaster/api.svc/json/GetUrlInfo?siteUrl=https%3A%2F%2Fexample.com%2F&url=https%3A%2F%2Fexample.com%2Fpricing",
@@ -583,10 +606,10 @@ describe("bingClient", () => {
       );
       const { createBingClient } = await import("./bingClient");
 
-      const info = await createBingClient({ mode: "oauth", userId: "u1" }).getUrlInfo(
-        "https://example.com/",
-        "https://example.com/never-seen",
-      );
+      const info = await createBingClient({
+        mode: "oauth",
+        userId: "u1",
+      }).getUrlInfo("https://example.com/", "https://example.com/never-seen");
 
       expect(info).toMatchObject({
         known: false,

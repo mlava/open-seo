@@ -37,6 +37,7 @@ import { Route as AppHelpDataforseoApiKeyRouteImport } from './routes/_app/help/
 import { Route as ProjectPProjectIdRouteRouteImport } from './routes/_project/p/$projectId/route'
 import { Route as ProjectPProjectIdIndexRouteImport } from './routes/_project/p/$projectId/index'
 import { Route as ApiGscOauthCallbackRouteImport } from './routes/api/gsc/oauth/callback'
+import { Route as ApiGa4OauthCallbackRouteImport } from './routes/api/ga4/oauth/callback'
 import { Route as ApiBingOauthCallbackRouteImport } from './routes/api/bing/oauth/callback'
 import { Route as ProjectPProjectIdTrafficRouteImport } from './routes/_project/p/$projectId/traffic'
 import { Route as ProjectPProjectIdStructuredDataRouteImport } from './routes/_project/p/$projectId/structured-data'
@@ -198,6 +199,11 @@ const ProjectPProjectIdIndexRoute = ProjectPProjectIdIndexRouteImport.update({
 const ApiGscOauthCallbackRoute = ApiGscOauthCallbackRouteImport.update({
   id: '/api/gsc/oauth/callback',
   path: '/api/gsc/oauth/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiGa4OauthCallbackRoute = ApiGa4OauthCallbackRouteImport.update({
+  id: '/api/ga4/oauth/callback',
+  path: '/api/ga4/oauth/callback',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiBingOauthCallbackRoute = ApiBingOauthCallbackRouteImport.update({
@@ -368,6 +374,7 @@ export interface FileRoutesByFullPath {
   '/p/$projectId/structured-data': typeof ProjectPProjectIdStructuredDataRoute
   '/p/$projectId/traffic': typeof ProjectPProjectIdTrafficRoute
   '/api/bing/oauth/callback': typeof ApiBingOauthCallbackRoute
+  '/api/ga4/oauth/callback': typeof ApiGa4OauthCallbackRoute
   '/api/gsc/oauth/callback': typeof ApiGscOauthCallbackRoute
   '/p/$projectId/': typeof ProjectPProjectIdIndexRoute
   '/p/$projectId/rank-tracking/$configId': typeof ProjectPProjectIdRankTrackingConfigIdRoute
@@ -413,6 +420,7 @@ export interface FileRoutesByTo {
   '/p/$projectId/structured-data': typeof ProjectPProjectIdStructuredDataRoute
   '/p/$projectId/traffic': typeof ProjectPProjectIdTrafficRoute
   '/api/bing/oauth/callback': typeof ApiBingOauthCallbackRoute
+  '/api/ga4/oauth/callback': typeof ApiGa4OauthCallbackRoute
   '/api/gsc/oauth/callback': typeof ApiGscOauthCallbackRoute
   '/p/$projectId': typeof ProjectPProjectIdIndexRoute
   '/p/$projectId/rank-tracking/$configId': typeof ProjectPProjectIdRankTrackingConfigIdRoute
@@ -466,6 +474,7 @@ export interface FileRoutesById {
   '/_project/p/$projectId/structured-data': typeof ProjectPProjectIdStructuredDataRoute
   '/_project/p/$projectId/traffic': typeof ProjectPProjectIdTrafficRoute
   '/api/bing/oauth/callback': typeof ApiBingOauthCallbackRoute
+  '/api/ga4/oauth/callback': typeof ApiGa4OauthCallbackRoute
   '/api/gsc/oauth/callback': typeof ApiGscOauthCallbackRoute
   '/_project/p/$projectId/': typeof ProjectPProjectIdIndexRoute
   '/_project/p/$projectId/rank-tracking/$configId': typeof ProjectPProjectIdRankTrackingConfigIdRoute
@@ -516,6 +525,7 @@ export interface FileRouteTypes {
     | '/p/$projectId/structured-data'
     | '/p/$projectId/traffic'
     | '/api/bing/oauth/callback'
+    | '/api/ga4/oauth/callback'
     | '/api/gsc/oauth/callback'
     | '/p/$projectId/'
     | '/p/$projectId/rank-tracking/$configId'
@@ -561,6 +571,7 @@ export interface FileRouteTypes {
     | '/p/$projectId/structured-data'
     | '/p/$projectId/traffic'
     | '/api/bing/oauth/callback'
+    | '/api/ga4/oauth/callback'
     | '/api/gsc/oauth/callback'
     | '/p/$projectId'
     | '/p/$projectId/rank-tracking/$configId'
@@ -613,6 +624,7 @@ export interface FileRouteTypes {
     | '/_project/p/$projectId/structured-data'
     | '/_project/p/$projectId/traffic'
     | '/api/bing/oauth/callback'
+    | '/api/ga4/oauth/callback'
     | '/api/gsc/oauth/callback'
     | '/_project/p/$projectId/'
     | '/_project/p/$projectId/rank-tracking/$configId'
@@ -634,6 +646,7 @@ export interface RootRouteChildren {
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiAutumnSplatRoute: typeof ApiAutumnSplatRoute
   ApiBingOauthCallbackRoute: typeof ApiBingOauthCallbackRoute
+  ApiGa4OauthCallbackRoute: typeof ApiGa4OauthCallbackRoute
   ApiGscOauthCallbackRoute: typeof ApiGscOauthCallbackRoute
 }
 
@@ -833,6 +846,13 @@ declare module '@tanstack/react-router' {
       path: '/api/gsc/oauth/callback'
       fullPath: '/api/gsc/oauth/callback'
       preLoaderRoute: typeof ApiGscOauthCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/ga4/oauth/callback': {
+      id: '/api/ga4/oauth/callback'
+      path: '/api/ga4/oauth/callback'
+      fullPath: '/api/ga4/oauth/callback'
+      preLoaderRoute: typeof ApiGa4OauthCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/bing/oauth/callback': {
@@ -1160,6 +1180,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiAutumnSplatRoute: ApiAutumnSplatRoute,
   ApiBingOauthCallbackRoute: ApiBingOauthCallbackRoute,
+  ApiGa4OauthCallbackRoute: ApiGa4OauthCallbackRoute,
   ApiGscOauthCallbackRoute: ApiGscOauthCallbackRoute,
 }
 export const routeTree = rootRouteImport

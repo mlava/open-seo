@@ -8,6 +8,7 @@ import { VercelConnectionCard } from "@/client/features/vercel/VercelConnectionC
 import { PagespeedConnectionCard } from "@/client/features/pagespeed/PagespeedConnectionCard";
 import { StripeConnectionCard } from "@/client/features/revenue/StripeConnectionCard";
 import { SearchConsoleConnectionCard } from "@/client/features/gsc/SearchConsoleConnectionCard";
+import { GoogleAnalyticsConnectionCard } from "@/client/features/ga4/GoogleAnalyticsConnectionCard";
 import { ProjectMarketFields } from "@/client/features/projects/ProjectMarketFields";
 import { getStandardErrorMessage } from "@/client/lib/error-messages";
 import {
@@ -89,6 +90,11 @@ export function ProjectSettings({ projectId }: { projectId: string }) {
       <section id="rapidapi" className="space-y-3 scroll-mt-6">
         <h2 className="text-sm font-medium text-base-content/50">RapidAPI</h2>
         <RapidapiToggleCard key={project.id} project={project} />
+      </section>
+
+      <section id="google-analytics" className="space-y-3 scroll-mt-6">
+        <h2 className="text-sm font-medium text-base-content/50">Analytics</h2>
+        <GoogleAnalyticsConnectionCard projectId={projectId} />
       </section>
 
       <DangerSection project={project} canArchive={projects.length > 1} />
@@ -209,9 +215,9 @@ function RapidapiToggleCard({ project }: { project: ProjectSummary }) {
       <div>
         <p className="text-sm font-medium">Show on the Revenue page</p>
         <p className="text-sm text-base-content/60">
-          Turn off if this project has no RapidAPI marketplace listing to
-          track — the manually-logged snapshot panel is hidden, and any
-          logged history is kept.
+          Turn off if this project has no RapidAPI marketplace listing to track
+          — the manually-logged snapshot panel is hidden, and any logged history
+          is kept.
         </p>
       </div>
       <input

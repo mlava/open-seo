@@ -7,7 +7,8 @@ import {
 } from "@/db/schema";
 import { executeInBatches } from "@/db/runBatch";
 
-export type BingAiCitationSnapshot = typeof bingAiCitationSnapshots.$inferSelect;
+export type BingAiCitationSnapshot =
+  typeof bingAiCitationSnapshots.$inferSelect;
 export type BingAiPageCitation = typeof bingAiPageCitations.$inferSelect;
 export type BingAiQueryCitation = typeof bingAiQueryCitations.$inferSelect;
 
@@ -57,7 +58,10 @@ async function createPagesSnapshot(input: {
   uploadedByUserId: string;
   rows: Array<{ page: string; citations: number }>;
 }): Promise<BingAiCitationSnapshot> {
-  const snapshot = await insertSnapshotHeader({ ...input, reportType: "pages" });
+  const snapshot = await insertSnapshotHeader({
+    ...input,
+    reportType: "pages",
+  });
   await executeInBatches(input.rows, (tx, row) =>
     tx.insert(bingAiPageCitations).values({
       id: crypto.randomUUID(),

@@ -238,7 +238,11 @@ function SetupWarning({ onUseApiKey }: { onUseApiKey: () => void }) {
         An account-wide API key from the same settings page needs none of that,
         and is the only lane that works while Bing's OAuth is degraded.
       </p>
-      <button type="button" className="btn btn-ghost btn-sm" onClick={onUseApiKey}>
+      <button
+        type="button"
+        className="btn btn-ghost btn-sm"
+        onClick={onUseApiKey}
+      >
         Use an API key instead
       </button>
     </div>

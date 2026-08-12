@@ -81,12 +81,14 @@ describe("buildSnapshotReport", () => {
 
   it("skips MRR when the latest snapshot lacks paying count or price", () => {
     expect(
-      buildSnapshotReport([snapshot({ payingSubscribers: null, planPriceUsdMinor: 599 })])
-        .grossMrrUsdMinor,
+      buildSnapshotReport([
+        snapshot({ payingSubscribers: null, planPriceUsdMinor: 599 }),
+      ]).grossMrrUsdMinor,
     ).toBeNull();
     expect(
-      buildSnapshotReport([snapshot({ payingSubscribers: 5, planPriceUsdMinor: null })])
-        .netMrrUsdMinor,
+      buildSnapshotReport([
+        snapshot({ payingSubscribers: 5, planPriceUsdMinor: null }),
+      ]).netMrrUsdMinor,
     ).toBeNull();
   });
 
