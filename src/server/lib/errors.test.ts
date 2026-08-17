@@ -32,6 +32,19 @@ describe("toClientError", () => {
     );
   });
 
+  it("passes validation detail through as CODE: detail", () => {
+    const error = toClientError(
+      new AppError(
+        "VALIDATION_ERROR",
+        "AI performance CSV is missing column(s): Date",
+      ),
+    );
+
+    expect(error.message).toBe(
+      "VALIDATION_ERROR: AI performance CSV is missing column(s): Date",
+    );
+  });
+
   it("keeps a detail-less setup error as its bare code", () => {
     const error = toClientError(new AppError("AUTH_CONFIG_MISSING"));
 

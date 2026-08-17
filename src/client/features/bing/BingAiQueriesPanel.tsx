@@ -46,8 +46,14 @@ const columns: ColumnDef<QueryRow>[] = [
       </span>
     ),
   }),
-  helper.accessor("intent", { header: () => "Intent" }),
-  helper.accessor("topic", { header: () => "Topic" }),
+  helper.accessor("intent", {
+    header: () => "Intent",
+    cell: ({ getValue }) => getValue() || "—",
+  }),
+  helper.accessor("topic", {
+    header: () => "Topic",
+    cell: ({ getValue }) => getValue() || "—",
+  }),
   helper.accessor("citations", {
     header: ({ column }) => (
       <SortableHeader column={column} label="Citations" align="right" />
