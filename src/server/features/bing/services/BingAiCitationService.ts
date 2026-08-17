@@ -128,8 +128,9 @@ export function parsePagesCsv(csvText: string): BingAiPageRow[] {
 export function parseQueriesCsv(csvText: string): BingAiQueryRow[] {
   return parseCsvRows(csvText, QUERIES_HEADERS).map((row) => ({
     query: requireNonEmpty(row["Grounding Query"] ?? "", "Grounding Query"),
-    intent: requireNonEmpty(row["Intent"] ?? "", "Intent"),
-    topic: requireNonEmpty(row["Topic"] ?? "", "Topic"),
+    // Bing exports blank Intent/Topic for queries it hasn't classified yet.
+    intent: (row["Intent"] ?? "").trim(),
+    topic: (row["Topic"] ?? "").trim(),
     citations: parseCount(row["Citations"] ?? "", "Citations"),
     citationSharePercent: parseCitationSharePercent(
       row["Citation Share"] ?? "",

@@ -73,6 +73,22 @@ describe("parseQueriesCsv", () => {
     ]);
   });
 
+  it("accepts blank Intent/Topic on unclassified queries", () => {
+    const csv = [
+      '"Grounding Query","Intent","Topic","Citations","Citation Share"',
+      '"doi to bib","","","25","29.41%"',
+    ].join("\n");
+    expect(parseQueriesCsv(csv)).toEqual([
+      {
+        query: "doi to bib",
+        intent: "",
+        topic: "",
+        citations: 25,
+        citationSharePercent: 29.41,
+      },
+    ]);
+  });
+
   it("rejects an unparseable citation share", () => {
     const csv = [
       '"Grounding Query","Intent","Topic","Citations","Citation Share"',
