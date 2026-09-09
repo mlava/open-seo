@@ -10,6 +10,12 @@ vi.mock("@/lib/auth", () => ({
   getAuth: () => ({ api: { getAccessToken: mocks.getAccessToken } }),
 }));
 
+// The real module dynamically imports `cloudflare:workers`, which never
+// settles under the fake timers the retry tests use.
+vi.mock("@/server/lib/runtime-env", () => ({
+  getOptionalEnvValue: async (name: string) => process.env[name] || undefined,
+}));
+
 function jsonResponse(body: unknown, status = 200) {
   return Response.json(body, { status });
 }
@@ -37,6 +43,7 @@ describe("bingClient", () => {
   });
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
   });
 
   it("unwraps the `d` envelope and maps PascalCase sites with a bearer token", async () => {
@@ -86,6 +93,21 @@ describe("bingClient", () => {
       "https://ssl.bing.com/webmaster/api.svc/json/GetUserSites",
     );
     expect(init?.headers).toMatchObject({ Authorization: "Bearer tok_bing" });
+  });
+
+  it("relays through BING_PROXY_URL with the shared secret, keeping path and query intact", async () => {
+    vi.stubEnv("BING_PROXY_URL", "https://bing-proxy.example.com/");
+    vi.stubEnv("BING_PROXY_SECRET", "s3cret");
+    mocks.fetch.mockResolvedValue(jsonResponse({ d: [] }));
+    const { createBingClient } = await import("./bingClient");
+
+    await createBingClient({ mode: "api_key", apiKey: "key 1" }).listSites();
+
+    const [url, init] = mocks.fetch.mock.calls[0];
+    expect(url).toBe(
+      "https://bing-proxy.example.com/GetUserSites?apikey=key%201",
+    );
+    expect(init?.headers).toMatchObject({ "x-bing-proxy-secret": "s3cret" });
   });
 
   it("targets the selected Better Auth grant by webmasteruid", async () => {

@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { getAuth } from "@/lib/auth";
+import { getOptionalEnvValue } from "@/server/lib/runtime-env";
 import {
   BING_API_BASE,
   BING_OAUTH_PROVIDER_ID,
@@ -125,6 +126,12 @@ export function parseWcfDate(value: unknown): Date | null {
  *  never "the grant is dead" — see isTransientBingFailure. */
 const BING_INVALID_TOKEN_CODE = 18;
 
+/** Bing's ThrottleIP code: the caller's IP is over Bing's per-address budget.
+ *  Cloudflare Workers share egress with every tenant, so it stays tripped
+ *  (confirmed 2026-09-10 from a throwaway worker; the same key answered 200
+ *  from elsewhere). resolveBingTarget is the way around it. */
+const BING_THROTTLE_IP_CODE = 17;
+
 const bingErrorBodySchema = z.looseObject({ ErrorCode: z.number() });
 
 function parseBingErrorCode(body: string): number | null {
@@ -242,6 +249,20 @@ function withApiKey(url: string, apiKey: string): string {
   return `${url}${url.includes("?") ? "&" : "?"}apikey=${encodeURIComponent(apiKey)}`;
 }
 
+/** With BING_PROXY_URL set, the call is relayed through bing-proxy/ (a Vercel
+ *  function) because Bing throttles Cloudflare Workers' shared egress IPs —
+ *  see BING_THROTTLE_IP_CODE. Only the origin moves; path and query are kept. */
+async function resolveBingTarget(url: string) {
+  const proxyUrl = await getOptionalEnvValue("BING_PROXY_URL");
+  const secret = await getOptionalEnvValue("BING_PROXY_SECRET");
+  const headers: Record<string, string> = {};
+  if (!proxyUrl || !secret) return { url, headers };
+  const relayed =
+    proxyUrl.replace(/\/+$/, "") + url.slice(BING_API_BASE.length);
+  headers["x-bing-proxy-secret"] = secret;
+  return { url: relayed, headers };
+}
+
 /** One attempt: perform the call, map HTTP errors, then unwrap and return the
  *  `d` payload. */
 async function sendBingRequest(
@@ -250,20 +271,21 @@ async function sendBingRequest(
   init?: { method?: string; body?: unknown },
 ): Promise<unknown> {
   const hasBody = init?.body !== undefined;
-  const response = await fetch(
+  const target = await resolveBingTarget(
     "apiKey" in auth ? withApiKey(url, auth.apiKey) : url,
-    {
-      method: init?.method ?? "GET",
-      headers: {
-        ...("bearerToken" in auth
-          ? { Authorization: `Bearer ${auth.bearerToken}` }
-          : {}),
-        Accept: "application/json",
-        ...(hasBody ? { "Content-Type": "application/json" } : {}),
-      },
-      body: hasBody ? JSON.stringify(init?.body) : undefined,
-    },
   );
+  const response = await fetch(target.url, {
+    method: init?.method ?? "GET",
+    headers: {
+      ...target.headers,
+      ...("bearerToken" in auth
+        ? { Authorization: `Bearer ${auth.bearerToken}` }
+        : {}),
+      Accept: "application/json",
+      ...(hasBody ? { "Content-Type": "application/json" } : {}),
+    },
+    body: hasBody ? JSON.stringify(init?.body) : undefined,
+  });
   if (!response.ok) {
     const body = await response.text().catch(() => "");
     throw new BingApiError(
@@ -294,9 +316,11 @@ function messageForStatus(status: number, body: string): string {
   }
   // Only reached once every retry has been spent, so say what is actually
   // wrong: Bing is flapping, the connection is fine, reconnecting won't help.
-  if (parseBingErrorCode(body) === BING_INVALID_TOKEN_CODE) {
+  const errorCode = parseBingErrorCode(body);
+  if (errorCode === BING_INVALID_TOKEN_CODE)
     return "Bing Webmaster kept rejecting a valid access token, which it does intermittently. Your connection is fine — try again shortly.";
-  }
+  if (errorCode === BING_THROTTLE_IP_CODE)
+    return "Bing Webmaster is rate-limiting this server's IP address. Your connection is fine and reconnecting won't help — try again later.";
   if (status === 404) {
     return "Bing Webmaster site not found. It may have been removed in Bing Webmaster Tools.";
   }

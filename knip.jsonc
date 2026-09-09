@@ -34,6 +34,8 @@
     // Alchemy state/bundle artifacts (gitignored)
     "!.alchemy/**",
     "!badseo/**",
+    // bing-proxy/ is a standalone Vercel function, deployed on its own.
+    "!bing-proxy/**",
   ],
   "ignore": ["drizzle-prod.config.ts"],
   // Disable Drizzle plugin - it tries to load drizzle.config.ts which imports cloudflare:workers
