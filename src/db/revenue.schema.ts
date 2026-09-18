@@ -89,3 +89,33 @@ export const stripeConnections = sqliteTable(
     index("stripe_connections_organization_idx").on(table.organizationId),
   ],
 );
+
+// Receiving wallet for x402 pay-per-call payments. x402 settles on-chain
+// (USDC on Base), so the chain is the ledger — no credential needed, just
+// the public payTo address. A row existing is what opts the project in.
+export const x402Wallets = sqliteTable(
+  "x402_wallets",
+  {
+    id: text("id").primaryKey(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    // The x402 payTo address ("0x…", 40 hex chars) on Base mainnet.
+    walletAddress: text("wallet_address").notNull(),
+    connectedByUserId: text("connected_by_user_id").notNull(),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(current_timestamp)`),
+    updatedAt: text("updated_at")
+      .notNull()
+      .default(sql`(current_timestamp)`),
+  },
+  (table) => [
+    // One wallet per OpenSEO project; switching replaces it.
+    uniqueIndex("x402_wallets_project_idx").on(table.projectId),
+    index("x402_wallets_organization_idx").on(table.organizationId),
+  ],
+);

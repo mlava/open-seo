@@ -10,6 +10,7 @@ import {
 import { formatMoney } from "@/client/features/revenue/revenueParts";
 import { getRapidapiSnapshots } from "@/serverFunctions/rapidapi";
 import { getStripeRevenue } from "@/serverFunctions/stripe";
+import { getX402Revenue } from "@/serverFunctions/x402";
 
 /** The MRR tile's value and breakdown across both recurring sources. Stripe
  *  and RapidAPI are only summed when Stripe's currency is USD (RapidAPI
@@ -56,19 +57,31 @@ export function RevenueCard({ projectId }: { projectId: string }) {
     queryKey: ["rapidapiSnapshots", projectId],
     queryFn: () => getRapidapiSnapshots({ data: { projectId } }),
   });
+  const x402Query = useQuery({
+    queryKey: ["x402Revenue", projectId],
+    queryFn: () => getX402Revenue({ data: { projectId } }),
+  });
   const data = revenueQuery.data;
+  // Like RapidAPI, an x402 failure (or no wallet) only drops its own tile.
+  const x402 = x402Query.data?.connected ? x402Query.data : null;
   // A RapidAPI fetch failure only costs its MRR contribution — the card
   // still renders the Stripe numbers.
   const rapidapiNet = rapidapiQuery.data?.report.netMrrUsdMinor ?? null;
 
   const subscription = data?.connected ? data.subscription : null;
   const oneOff = data?.connected ? data.oneOff : null;
-  const refunds = oneOff?.refunds ?? null;
   const mrr = buildMrr(subscription?.mrr ?? null, rapidapiNet);
 
   // The Stripe pitch only when RapidAPI has nothing to show either (wait for
   // its query so the pitch doesn't flash before an MRR-bearing snapshot).
-  if (data && !data.connected && !rapidapiQuery.isPending && mrr === null) {
+  if (
+    data &&
+    !data.connected &&
+    !rapidapiQuery.isPending &&
+    !x402Query.isPending &&
+    mrr === null &&
+    !x402
+  ) {
     return (
       <CardShell title="Revenue">
         <EmptyCardBody
@@ -87,14 +100,14 @@ export function RevenueCard({ projectId }: { projectId: string }) {
     );
   }
 
-  const hasAnything = Boolean(subscription || oneOff || mrr);
+  const hasAnything = Boolean(subscription || oneOff || mrr || x402);
 
   return (
     <CardShell
       title="Revenue"
       stamp={
         hasAnything
-          ? `Stripe${rapidapiNet !== null ? " + RapidAPI" : ""} · last 30 days vs prior 30`
+          ? `Stripe${rapidapiNet !== null ? " + RapidAPI" : ""}${x402 ? " + x402" : ""} · last 30 days vs prior 30`
           : undefined
       }
       action={
@@ -107,7 +120,9 @@ export function RevenueCard({ projectId }: { projectId: string }) {
         </Link>
       }
     >
-      {revenueQuery.isPending || rapidapiQuery.isPending ? (
+      {revenueQuery.isPending ||
+      rapidapiQuery.isPending ||
+      x402Query.isPending ? (
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-busy>
           {Array.from({ length: 4 }, (_, i) => (
             <div key={i} className="skeleton h-20" />
@@ -141,44 +156,67 @@ export function RevenueCard({ projectId }: { projectId: string }) {
               }
             />
           ) : null}
-          {oneOff ? (
-            <>
-              <Stat
-                label="Purchases (30d)"
-                value={oneOff.purchasesLast30.toLocaleString()}
-                sub={
-                  <PercentDelta
-                    current={oneOff.purchasesLast30}
-                    previous={oneOff.purchasesPrev30}
-                  />
-                }
-              />
-              <Stat
-                label={refunds ? "Net revenue (30d)" : "Revenue (30d)"}
-                value={
-                  oneOff.currency
-                    ? formatMoney(
-                        oneOff.revenueLast30 -
-                          (refunds?.refundAmountLast30 ?? 0),
-                        oneOff.currency,
-                      )
-                    : "—"
-                }
-                sub={
-                  <PercentDelta
-                    current={
-                      oneOff.revenueLast30 - (refunds?.refundAmountLast30 ?? 0)
-                    }
-                    previous={
-                      oneOff.revenuePrev30 - (refunds?.refundAmountPrev30 ?? 0)
-                    }
-                  />
-                }
-              />
-            </>
+          {oneOff ? <OneOffStats oneOff={oneOff} /> : null}
+          {x402 ? (
+            <Stat
+              label="x402 revenue (30d)"
+              value={formatMoney(x402.revenueLast30UsdMinor, "usd", 2)}
+              sub={
+                <PercentDelta
+                  current={x402.revenueLast30UsdMinor}
+                  previous={x402.revenuePrev30UsdMinor}
+                />
+              }
+            />
           ) : null}
         </div>
       )}
     </CardShell>
+  );
+}
+
+function OneOffStats({
+  oneOff,
+}: {
+  oneOff: {
+    purchasesLast30: number;
+    purchasesPrev30: number;
+    revenueLast30: number;
+    revenuePrev30: number;
+    currency: string | null;
+    refunds: { refundAmountLast30: number; refundAmountPrev30: number } | null;
+  };
+}) {
+  const { refunds } = oneOff;
+  return (
+    <>
+      <Stat
+        label="Purchases (30d)"
+        value={oneOff.purchasesLast30.toLocaleString()}
+        sub={
+          <PercentDelta
+            current={oneOff.purchasesLast30}
+            previous={oneOff.purchasesPrev30}
+          />
+        }
+      />
+      <Stat
+        label={refunds ? "Net revenue (30d)" : "Revenue (30d)"}
+        value={
+          oneOff.currency
+            ? formatMoney(
+                oneOff.revenueLast30 - (refunds?.refundAmountLast30 ?? 0),
+                oneOff.currency,
+              )
+            : "—"
+        }
+        sub={
+          <PercentDelta
+            current={oneOff.revenueLast30 - (refunds?.refundAmountLast30 ?? 0)}
+            previous={oneOff.revenuePrev30 - (refunds?.refundAmountPrev30 ?? 0)}
+          />
+        }
+      />
+    </>
   );
 }
