@@ -7,6 +7,7 @@ import { BingConnectionCard } from "@/client/features/bing/BingConnectionCard";
 import { VercelConnectionCard } from "@/client/features/vercel/VercelConnectionCard";
 import { PagespeedConnectionCard } from "@/client/features/pagespeed/PagespeedConnectionCard";
 import { StripeConnectionCard } from "@/client/features/revenue/StripeConnectionCard";
+import { X402WalletCard } from "@/client/features/revenue/X402WalletCard";
 import { SearchConsoleConnectionCard } from "@/client/features/gsc/SearchConsoleConnectionCard";
 import { GoogleAnalyticsConnectionCard } from "@/client/features/ga4/GoogleAnalyticsConnectionCard";
 import { ProjectMarketFields } from "@/client/features/projects/ProjectMarketFields";
@@ -90,6 +91,11 @@ export function ProjectSettings({ projectId }: { projectId: string }) {
       <section id="rapidapi" className="space-y-3 scroll-mt-6">
         <h2 className="text-sm font-medium text-base-content/50">RapidAPI</h2>
         <RapidapiToggleCard key={project.id} project={project} />
+      </section>
+
+      <section id="x402" className="space-y-3 scroll-mt-6">
+        <h2 className="text-sm font-medium text-base-content/50">x402</h2>
+        <X402WalletCard projectId={projectId} />
       </section>
 
       <section id="google-analytics" className="space-y-3 scroll-mt-6">

@@ -25,6 +25,7 @@ import { getVercelTrafficTool } from "@/server/mcp/tools/vercel-tools";
 import {
   getRapidapiSnapshotsTool,
   getStripeRevenueTool,
+  getX402RevenueTool,
 } from "@/server/mcp/tools/revenue-tools";
 import {
   getPagespeedInsightsTool,
@@ -210,6 +211,7 @@ export function createOpenSeoMcpServer(authProps: McpProps) {
   register(getPagespeedIssuesTool);
   register(getStripeRevenueTool);
   register(getRapidapiSnapshotsTool);
+  register(getX402RevenueTool);
   register(listAiCitationPromptsTool);
   register(getAiCitationResultsTool);
 

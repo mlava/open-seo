@@ -14,6 +14,10 @@ import {
   StripeRevenueService,
   StripeNotConnectedError,
 } from "@/server/features/revenue/services/StripeRevenueService";
+import {
+  X402RevenueService,
+  X402NotConnectedError,
+} from "@/server/features/revenue/services/X402RevenueService";
 import { isExpectedStripeFailure } from "@/server/lib/stripeClient";
 
 const revenueInputSchema = { projectId: projectIdSchema } as const;
@@ -195,6 +199,66 @@ export const getStripeRevenueTool = {
           meta,
           structuredContent: { ok: false, reason: "api_error", connectUrl },
         });
+      }
+      throw error;
+    }
+  }),
+};
+
+const usd = (minor: number) => `$${(minor / 100).toFixed(2)}`;
+
+export const getX402RevenueTool = {
+  name: "get_x402_revenue",
+  config: {
+    title: "Get x402 payment revenue",
+    description:
+      "x402 pay-per-call revenue for the project's receiving wallet, read from its inbound USDC transfers on Base: payment count and revenue for the last 30 days vs the prior 30, plus the most recent payments (date, amount, transaction hash). Amounts are USD cents. No payer addresses are included. Read-only; uses no credits.",
+    inputSchema: revenueInputSchema,
+    outputSchema: {
+      ok: z.boolean(),
+      reason: z.string().optional(),
+      connectUrl: z.string().optional(),
+      report: looseObjectOutputSchema.optional(),
+      ...optionalMetaOutputSchema,
+    },
+    annotations: {
+      readOnlyHint: true,
+      openWorldHint: true,
+      destructiveHint: false,
+    },
+  },
+  handler: withMcpProjectAuth(async (args: RevenueArgs, context) => {
+    const connectUrl = buildDashboardUrl(
+      context.baseUrl,
+      `/p/${args.projectId}/settings`,
+    );
+    const meta = buildProjectMeta(
+      context,
+      args.projectId,
+      `/p/${args.projectId}/settings`,
+    );
+    try {
+      const report = await X402RevenueService.getRevenue({
+        projectId: args.projectId,
+      });
+      const lines = [
+        `x402 (USDC on Base): ${report.paymentsLast30} payments / ${usd(report.revenueLast30UsdMinor)} last 30d (prev 30d: ${report.paymentsPrev30} / ${usd(report.revenuePrev30UsdMinor)})`,
+        ...(report.truncated
+          ? ["  page cap hit — these figures undercount"]
+          : []),
+        ...report.recent.map(
+          (payment) =>
+            `  ${payment.timestamp.slice(0, 10)} ${usd(payment.amountUsdMinor)} ${payment.transactionHash}`,
+        ),
+      ];
+      return mcpResponse({
+        text: lines.join("\n"),
+        meta,
+        structuredContent: { ok: true, report },
+      });
+    } catch (error) {
+      if (error instanceof X402NotConnectedError) {
+        return notConnectedResponse(meta, connectUrl, "x402");
       }
       throw error;
     }

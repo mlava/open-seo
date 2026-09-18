@@ -89,3 +89,27 @@ connection card instead of an error boundary; the MCP tool returns
 `{ ok: false, reason: "not_connected" | "api_error", connectUrl }`. The
 RapidAPI snapshot panel has no external dependency to fail — an empty
 history just prompts for the first log.
+
+## Addendum: x402 payments (on-chain)
+
+x402 is a third, optional revenue source. x402 settles every payment as a
+USDC transfer on Base to the seller's `payTo` wallet, so the chain is the
+ledger: `X402RevenueService` polls Blockscout's keyless public API
+(`/api/v2/addresses/{wallet}/token-transfers`, filtered to inbound Base USDC)
+and reports payment count and revenue for the last 30 days vs the prior 30,
+plus the most recent payments.
+
+- Opt-in is the `x402_wallets` row (one per project, set in project settings
+  → x402). No wallet, no panel, no dashboard tile, and the Revenue intro line
+  doesn't mention it.
+- No credential or env var — the wallet address is public.
+- PII-free like the rest of the page: payer addresses are never parsed.
+- Every inbound USDC transfer counts as a payment, so the wallet should be
+  dedicated to x402 receipts. Method-selector filtering was rejected:
+  facilitators settle through more than one entry point
+  (`transferWithAuthorization` directly, or batched), so a selector filter
+  would silently drop real payments.
+- Base mainnet USDC only. Reads are capped at 20 pages (1,000 transfers) per
+  request to bound Worker subrequests; hitting the cap flags the report
+  `truncated`.
+- MCP: `get_x402_revenue`.

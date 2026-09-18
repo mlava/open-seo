@@ -123,6 +123,7 @@ export const {
   psiSnapshots,
   rapidapiSnapshots,
   stripeConnections,
+  x402Wallets,
   telemetryState,
   bingAiCitationDays,
   bingAiCitationSnapshots,
