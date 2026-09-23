@@ -14,7 +14,7 @@ import {
   auditPages,
 } from "@/db/schema";
 import { executeInBatches } from "@/db/runBatch";
-import { AUDIT_ISSUE_TYPES } from "@/shared/audit-issues";
+import { insertIssues } from "./auditIssueWrites";
 import { deterministicAuditRowId } from "@/server/lib/audit/ids";
 import type { DetectedIssue } from "@/server/lib/audit/issues/page-reporters";
 import type {
@@ -200,28 +200,6 @@ async function insertCrawledBatch(
   });
 
   await insertIssues(auditId, issues);
-}
-
-async function insertIssues(auditId: string, issues: DetectedIssue[]) {
-  const issueRows = await Promise.all(
-    issues.map(async (issue) => ({
-      id: await deterministicAuditRowId(
-        auditId,
-        issue.pageUrl,
-        issue.issueType,
-        issue.dedupeKey ?? "",
-      ),
-      auditId,
-      pageId: issue.pageId,
-      pageUrl: issue.pageUrl,
-      issueType: issue.issueType,
-      severity: AUDIT_ISSUE_TYPES[issue.issueType].severity,
-      detailsJson: issue.details ? JSON.stringify(issue.details) : null,
-    })),
-  );
-  await executeInBatches(issueRows, (tx, row) =>
-    tx.insert(auditIssues).values(row).onConflictDoNothing(),
-  );
 }
 
 async function insertLighthouseResults(
