@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { MAX_DATAFORSEO_FILTER_CONDITIONS } from "@/types/schemas/domain";
 import {
   EMPTY_BACKLINKS_FILTERS,
@@ -19,11 +19,14 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-function loadFromStorage<T extends FilterValues>(tab: string, fallback: T): T {
+function loadFromStorage<T extends FilterValues>(
+  storageKey: string,
+  fallback: T,
+): T {
   const fallbackClone = { ...fallback };
 
   try {
-    const raw = localStorage.getItem(`${STORAGE_KEY_PREFIX}${tab}`);
+    const raw = localStorage.getItem(storageKey);
     if (!raw) return fallbackClone;
 
     const parsed: unknown = JSON.parse(raw);
@@ -50,9 +53,9 @@ function loadFromStorage<T extends FilterValues>(tab: string, fallback: T): T {
   }
 }
 
-function saveToStorage(tab: string, values: FilterValues) {
+function saveToStorage(key: string, values: FilterValues) {
   try {
-    localStorage.setItem(`${STORAGE_KEY_PREFIX}${tab}`, JSON.stringify(values));
+    localStorage.setItem(key, JSON.stringify(values));
   } catch {
     // storage full - silently ignore
   }
@@ -60,19 +63,29 @@ function saveToStorage(tab: string, values: FilterValues) {
 
 /**
  * Holds the *applied* filters for one tab. Draft edits live inside the filter
- * panel; values here are what the server queries use, persisted per tab.
+ * panel; values here are what the server queries use, persisted per target
+ * and tab so one site's spam exclusions don't leak into another's view.
+ *
+ * Loaded values are cached per storage key in state (not reloaded via an
+ * effect) so switching target never renders — and never bills a fetch for —
+ * the previous target's filters.
  */
-function useTabFilters<T extends FilterValues>(tab: string, emptyValues: T) {
-  const [values, setValues] = useState<T>(() =>
-    loadFromStorage(tab, { ...emptyValues }),
+function useTabFilters<T extends FilterValues>(
+  storageKey: string,
+  emptyValues: T,
+) {
+  const [loaded, setLoaded] = useState<Record<string, T>>({});
+  const values = useMemo(
+    () => loaded[storageKey] ?? loadFromStorage(storageKey, emptyValues),
+    [emptyValues, loaded, storageKey],
   );
 
   const apply = useCallback(
     (next: T) => {
-      setValues(next);
-      saveToStorage(tab, next);
+      setLoaded((current) => ({ ...current, [storageKey]: next }));
+      saveToStorage(storageKey, next);
     },
-    [tab],
+    [storageKey],
   );
 
   const reset = useCallback(() => {
@@ -87,19 +100,20 @@ function useTabFilters<T extends FilterValues>(tab: string, emptyValues: T) {
   };
 }
 
-export function useBacklinksFilters() {
+export function useBacklinksFilters(target: string) {
   const [showFilters, setShowFilters] = useState(false);
+  const keyPrefix = `${STORAGE_KEY_PREFIX}${target.trim().toLowerCase()}:`;
 
   const backlinks = useTabFilters<BacklinksTabFilterValues>(
-    "backlinks",
+    `${keyPrefix}backlinks`,
     EMPTY_BACKLINKS_FILTERS,
   );
   const domains = useTabFilters<ReferringDomainsFilterValues>(
-    "domains",
+    `${keyPrefix}domains`,
     EMPTY_REFERRING_DOMAINS_FILTERS,
   );
   const pages = useTabFilters<TopPagesFilterValues>(
-    "pages",
+    `${keyPrefix}pages`,
     EMPTY_TOP_PAGES_FILTERS,
   );
 

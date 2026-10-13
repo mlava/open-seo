@@ -1,10 +1,9 @@
 import {
   assertFilterConditionBudget,
+  buildExcludeClause,
   buildIncludeOrGroup,
   collectNumericRange,
-  escapeLikeTerm,
   joinClauses,
-  parseFilterTerms,
   type FilterClause,
 } from "@/server/lib/dataforseo/filters";
 import type {
@@ -66,7 +65,8 @@ export function buildTopPagesOrderBy(
 /**
  * Translates the Backlinks tab filters into DataForSEO filter expressions.
  * Include/exclude terms match the source URL (which contains the linking
- * domain): include terms are OR'd (match any), exclude terms AND'd (drop all).
+ * domain): include terms are OR'd (match any), exclude terms drop any match
+ * and always cost one condition however many there are.
  */
 export function buildBacklinksRowsApiFilters(
   filters: BacklinksRowsFilters,
@@ -157,9 +157,8 @@ function collectExcludeConditions(
   field: string,
   exclude: string | undefined,
 ) {
-  for (const term of parseFilterTerms(exclude)) {
-    out.push([field, "not_ilike", `%${escapeLikeTerm(term)}%`]);
-  }
+  const clause = buildExcludeClause(field, exclude);
+  if (clause) out.push(clause);
 }
 
 /** Prepends the OR'd include group, enforces the condition budget, joins with "and". */

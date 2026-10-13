@@ -50,11 +50,26 @@ describe("buildBacklinksRowsApiFilters", () => {
     expect(buildBacklinksRowsApiFilters({})).toEqual([]);
   });
 
+  it("collapses several exclude terms into one case-insensitive not_regex", () => {
+    expect(
+      buildBacklinksRowsApiFilters({ exclude: "Spam.io, wp_content, a(b)" }),
+    ).toEqual([["url_from", "not_regex", "(?i)spam\\.io|wp_content|a\\(b\\)"]]);
+  });
+
+  it("rejects exclude terms beyond DataForSEO's regex length", () => {
+    const exclude = Array.from({ length: 100 }, (_, i) => `spam${i}.com`).join(
+      ",",
+    );
+    expect(() => buildBacklinksRowsApiFilters({ exclude })).toThrowError(
+      /Exclude terms are too long/,
+    );
+  });
+
   it("throws when the condition budget is exceeded", () => {
     expect(() =>
       buildBacklinksRowsApiFilters({
-        include: "a, b, c, d, e",
-        exclude: "f, g, h, i",
+        include: "a, b, c, d, e, f, g, h",
+        exclude: "i, j, k, l",
       }),
     ).toThrowError(/Too many filter conditions/);
   });
@@ -121,6 +136,10 @@ describe("client condition count vs server condition budget", () => {
         minDomainRank: "30",
         maxSpamScore: "50",
       },
+    ],
+    [
+      "many exclude terms",
+      { ...EMPTY_BACKLINKS_FILTERS, exclude: "a, b, c, d, e, f, g, h, i, j" },
     ],
     [
       "toggles",

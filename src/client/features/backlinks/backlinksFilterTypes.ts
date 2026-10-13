@@ -116,13 +116,15 @@ export function countActiveFilters(values: Record<string, string>): number {
 
 /**
  * Mirrors how the server translates filters to DataForSEO conditions: each
- * include/exclude term is one condition, every other non-empty field is one.
- * Used to enforce DataForSEO's per-request condition budget before applying.
+ * include term is one condition, all exclude terms together are one (the
+ * server collapses them into a single pattern), every other non-empty field
+ * is one. Used to enforce DataForSEO's per-request condition budget before
+ * applying.
  */
 export function countFilterConditions(values: Record<string, string>): number {
   let n = 0;
   for (const [key, value] of Object.entries(values)) {
-    if (key === "include" || key === "exclude") {
+    if (key === "include") {
       for (const term of value.split(/[,+]/)) if (term.trim()) n += 1;
       continue;
     }

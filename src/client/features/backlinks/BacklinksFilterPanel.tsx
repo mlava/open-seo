@@ -11,9 +11,10 @@ import type { BacklinksFiltersState } from "./useBacklinksFilters";
 
 /**
  * Filters are applied explicitly (not per keystroke) because every change
- * triggers a billed DataForSEO request. Each include/exclude term and each
- * set field costs one DataForSEO filter condition, capped per request —
- * DomainFilterPanel surfaces the count and gates Apply.
+ * triggers a billed DataForSEO request. Each include term and each set field
+ * costs one DataForSEO filter condition, capped per request; exclude terms
+ * share a single condition. DomainFilterPanel surfaces the count and gates
+ * Apply.
  */
 export function BacklinksFilterPanel({
   activeTab,
