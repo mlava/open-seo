@@ -12,6 +12,39 @@ export function escapeLikeTerm(term: string): string {
   return term.replace(/[\\%_]/g, (match) => `\\${match}`);
 }
 
+/** DataForSEO caps `regex` / `not_regex` pattern values at 1000 characters. */
+export const MAX_DATAFORSEO_REGEX_LENGTH = 1000;
+
+function escapeRegexTerm(term: string): string {
+  return term.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&");
+}
+
+/**
+ * All exclude terms as ONE condition so the number of excluded sites is not
+ * bounded by the 8-condition request budget. A single term keeps the plain
+ * `not_ilike`; several collapse into one case-insensitive RE2 alternation
+ * (`not_regex`). Returns null when there are no terms.
+ */
+export function buildExcludeClause(
+  field: string,
+  exclude: string | undefined,
+): FilterClause | null {
+  const terms = parseFilterTerms(exclude);
+  const first = terms[0];
+  if (first === undefined) return null;
+  if (terms.length === 1) {
+    return [field, "not_ilike", `%${escapeLikeTerm(first)}%`];
+  }
+  const pattern = `(?i)${terms.map(escapeRegexTerm).join("|")}`;
+  if (pattern.length > MAX_DATAFORSEO_REGEX_LENGTH) {
+    throw new AppError(
+      "VALIDATION_ERROR",
+      `Exclude terms are too long (${pattern.length} of ${MAX_DATAFORSEO_REGEX_LENGTH} characters max). Remove some terms.`,
+    );
+  }
+  return [field, "not_regex", pattern];
+}
+
 /** Splits a comma/plus separated terms string into trimmed lowercase terms. */
 export function parseFilterTerms(value: string | undefined): string[] {
   if (!value) return [];

@@ -57,7 +57,7 @@ const inputSchema = {
   filters: backlinksRowsFiltersSchema
     .default({})
     .describe(
-      "Backlink row filters: include/exclude source URL terms, authority/spam ranges, dofollow/nofollow, lost/broken visibility, or exact domainFrom.",
+      "Backlink row filters: include/exclude source URL terms (comma-separated; any number of exclude terms share one filter condition), authority/spam ranges, dofollow/nofollow, lost/broken visibility, or exact domainFrom.",
     ),
   mode: backlinksRowsModeSchema
     .default("one_per_domain")

@@ -26,7 +26,7 @@ export function BacklinksPage({
   searchState,
   navigate,
 }: BacklinksPageProps) {
-  const filters = useBacklinksFilters();
+  const filters = useBacklinksFilters(searchState.target);
 
   // Sort lives in the URL so sort changes and the page reset commit in one
   // navigation (no transient fetch of the old page with the new sort).
